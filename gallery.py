@@ -129,6 +129,12 @@ HTML_TEMPLATE = """
         #toolbar button i {
             margin-right: 0.5em;
         }
+        #drop-area {
+            display: none; /* Hide upload control by default */
+        }
+        #drop-area.visible {
+            display: block; /* Show upload control when active */
+        }
     </style>
 </head>
 <body>
@@ -162,6 +168,7 @@ HTML_TEMPLATE = """
         const mainHeading = document.getElementById("main-heading");
         const galleryBtn = document.getElementById("gallery-btn");
         const uploadsBtn = document.getElementById("uploads-btn");
+        const dropArea = document.getElementById("drop-area");
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -242,6 +249,9 @@ HTML_TEMPLATE = """
             mainHeading.innerText = dir === "webp" ? "Gallery" : "Uploads Directory";
             galleryBtn.classList.toggle("active", dir === "webp");
             uploadsBtn.classList.toggle("active", dir === "uploads");
+
+            // Show or hide upload control
+            dropArea.classList.toggle("visible", dir === "uploads");
         }
 
         galleryBtn.addEventListener("click", () => switchDirectory("webp"));
@@ -257,7 +267,6 @@ HTML_TEMPLATE = """
             }
         });
 
-        const dropArea = document.getElementById('drop-area');
         const fileElem = document.getElementById('fileElem');
         const uploadStatus = document.getElementById('upload-status');
 
