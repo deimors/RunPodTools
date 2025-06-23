@@ -478,16 +478,40 @@ HTML_TEMPLATE = """
                 modalProgress.style.display = "none";
                 downloadBtn.style.display = "none";
             } else if (e.target.closest("#delete-selected-btn")) {
-                // Delete selected files
                 const selectedFiles = Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
                     .map(img => img.alt);
                 if (selectedFiles.length === 0) {
                     alert("No files selected.");
                     return;
                 }
-                if (confirm(`Are you sure you want to delete ${selectedFiles.length} file(s)?`)) {
-                    deleteFiles(selectedFiles);
-                }
+
+                // Show delete confirmation modal
+                modal.style.display = "block";
+                modalTitle.innerText = `Delete ${selectedFiles.length} file(s)?`;
+                zipFilenameInput.style.display = "none"; // Hide filename input
+                zipBtn.style.display = "none"; // Hide zip button
+                modalProgress.style.display = "none"; // Hide progress
+                downloadBtn.style.display = "none"; // Hide download button
+
+                const deleteBtn = document.createElement("button");
+                deleteBtn.id = "delete-btn";
+                deleteBtn.innerText = "Delete";
+                deleteBtn.style.width = "100%";
+                deleteBtn.style.padding = "0.5em";
+                deleteBtn.style.background = "#d9534f"; // Red color for delete
+                deleteBtn.style.color = "#fff";
+                deleteBtn.style.border = "none";
+                deleteBtn.style.borderRadius = "4px";
+                deleteBtn.style.cursor = "pointer";
+                deleteBtn.style.fontSize = "1em";
+                deleteBtn.style.marginBottom = "0.5em";
+
+                deleteBtn.addEventListener("click", async () => {
+                    modal.style.display = "none";
+                    await deleteFiles(selectedFiles);
+                });
+
+                modal.querySelector(".modal-content").appendChild(deleteBtn);
             }
         });
 
@@ -556,6 +580,8 @@ HTML_TEMPLATE = """
         modal.addEventListener("click", (e) => {
             if (e.target === modal) {
                 modal.style.display = "none";
+                const deleteBtn = document.getElementById("delete-btn");
+                if (deleteBtn) deleteBtn.remove(); // Remove delete button from modal
             }
         });
     </script>
