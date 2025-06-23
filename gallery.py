@@ -296,6 +296,46 @@ HTML_TEMPLATE = """
             threshold: 0.01
         });
 
+        function createImageElement(fileName, filePath, isWebP = false, animatedPath = null) {
+            const container = document.createElement("div");
+            container.className = "image-container";
+
+            const img = document.createElement("img");
+            img.alt = fileName;
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "checkbox";
+            checkbox.addEventListener("change", () => {
+                container.classList.toggle("selected", checkbox.checked);
+            });
+
+            img.src = filePath;
+
+            if (isWebP && animatedPath) {
+                img.dataset.static = filePath;
+                img.dataset.animated = animatedPath;
+
+                container.addEventListener("mouseenter", () => {
+                    img.src = img.dataset.animated; // Play animation on hover
+                });
+
+                container.addEventListener("mouseleave", () => {
+                    img.src = img.dataset.static; // Return to static frame when not hovering
+                });
+            }
+
+            img.addEventListener("click", (e) => {
+                if (e.target.className === "checkbox") return;
+                lightboxImg.src = isWebP && animatedPath ? img.dataset.animated : img.src;
+                lightbox.style.display = "flex";
+            });
+
+            container.appendChild(img);
+            container.appendChild(checkbox);
+            return container;
+        }
+
         async function loadMore() {
             if (loading || done) return;
             loading = true;
@@ -312,52 +352,11 @@ HTML_TEMPLATE = """
             }
 
             data.files.forEach(file => {
-                const container = document.createElement("div");
-                container.className = "image-container";
-                
-                const img = document.createElement("img");
-                img.alt = file;
-                
-                const checkbox = document.createElement("input");
-                checkbox.type = "checkbox";
-                checkbox.className = "checkbox";
-                checkbox.addEventListener("change", () => {
-                    container.classList.toggle("selected", checkbox.checked);
-                });
-
                 const fileExt = file.split('.').pop().toLowerCase();
-                
-                if (fileExt === 'webp') {
-                    // For WebP files, use the static frame initially
-                    img.dataset.static = `/static-frame/${file}`;
-                    img.dataset.animated = `/${currentDir}/${file}`;
-                    
-                    // Play animation on hover
-                    container.addEventListener("mouseenter", () => {
-                        img.src = img.dataset.animated;
-                    });
-                    
-                    // Return to static frame when not hovering
-                    container.addEventListener("mouseleave", () => {
-                        img.src = img.dataset.static;
-                    });
-                    
-                    img.dataset.src = img.dataset.static;
-                } else if (['jpg', 'jpeg', 'png'].includes(fileExt)) {
-                    // For static image formats, just set the src directly
-                    img.dataset.src = `/${currentDir}/${file}`;
-                }
-
-                // Add click event for lightbox
-                img.addEventListener("click", (e) => {
-                    if (e.target.className === "checkbox") return; // Ignore clicks on checkbox
-                    lightboxImg.src = fileExt === 'webp' ? img.dataset.animated : img.dataset.src;
-                    lightbox.style.display = "flex";
-                });
-                
-                container.appendChild(img);
-                container.appendChild(checkbox);
-                observer.observe(container);
+                const isWebP = fileExt === 'webp';
+                const filePath = isWebP ? `/static-frame/${file}` : `/${currentDir}/${file}`;
+                const animatedPath = isWebP ? `/${currentDir}/${file}` : null;
+                const container = createImageElement(file, filePath, isWebP, animatedPath);
                 gallery.appendChild(container);
             });
 
@@ -442,6 +441,17 @@ HTML_TEMPLATE = """
             });
             const result = await response.json();
             uploadStatus.innerText = result.message;
+
+            if (response.ok) {
+                for (const file of files) {
+                    const fileExt = file.name.split('.').pop().toLowerCase();
+                    const isWebP = fileExt === 'webp';
+                    const filePath = `/uploads/${file.name}`;
+                    const animatedPath = isWebP ? `/uploads/${file.name}` : null;
+                    const container = createImageElement(file.name, filePath, isWebP, animatedPath);
+                    gallery.appendChild(container);
+                }
+            }
         }
 
         document.getElementById("toolbar").addEventListener("click", (e) => {
