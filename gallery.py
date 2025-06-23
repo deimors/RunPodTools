@@ -174,18 +174,19 @@ HTML_TEMPLATE = """
         /* Modal styles */
         .modal {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%); /* Center the modal */
-            width: auto; /* Ensure modal width is based on content */
-            height: auto; /* Ensure modal height is based on content */
-            background: rgba(0, 0, 0, 0.8); /* Keep dark curtain */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
             display: none;
-            justify-content: center;
-            align-items: center;
             z-index: 3000;
         }
         .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: #fff;
             padding: 2em;
             border-radius: 8px;
@@ -508,7 +509,7 @@ HTML_TEMPLATE = """
 
         // Close modal when clicking outside
         modal.addEventListener("click", (e) => {
-            if (e.target === modal) { // Close modal if clicking outside the modal content
+            if (e.target === modal) {
                 modal.style.display = "none";
             }
         });
