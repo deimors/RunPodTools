@@ -55,9 +55,17 @@ HTML_TEMPLATE = """
 <html>
 <head>
     <title>Lazy WebP Gallery</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body { font-family: sans-serif; margin: 0; padding: 1em; background: #f8f8f8; }
-        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1em; }
+        #main-content {
+            margin-left: 300px; /* Add margin to avoid toolbar overlap */
+        }
+        .gallery { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+            gap: 1em; 
+        }
         .gallery img { width: 100%; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
         #loading { text-align: center; margin: 2em; font-size: 1.2em; color: #888; }
         #drop-area {
@@ -86,18 +94,60 @@ HTML_TEMPLATE = """
         .gallery img {
             display: block;
         }
+        #toolbar {
+            position: fixed;
+            top: 1em;
+            left: 1em;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            padding: 1em;
+            z-index: 1000;
+            width: 200px;
+        }
+        #toolbar button {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+            margin-bottom: 0.5em;
+            padding: 0.5em 1em;
+            background: #0078d7;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        #toolbar button:hover {
+            background: #005fa3;
+        }
+        #toolbar button i {
+            margin-right: 0.5em;
+        }
     </style>
 </head>
 <body>
-    <h1>Lazy-Loaded WebP Gallery</h1>
-    <div id="drop-area">
-        <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
-        <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
-        <div id="upload-status"></div>
+    <div id="toolbar">
+        <button><i class="fas fa-images"></i>Gallery</button>
+        <button><i class="fas fa-upload"></i>Uploads</button>
+        <button><i class="fas fa-file-archive"></i>Zips</button>
+        <button><i class="fas fa-check-square"></i>Select All</button>
+        <button><i class="fas fa-times-circle"></i>Clear Selection</button>
+        <button><i class="fas fa-file-zipper"></i>Zip Selected</button>
+        <button><i class="fas fa-trash"></i>Delete Selected</button>
     </div>
-    <div class="gallery" id="gallery"></div>
-    <div id="loading">Loading...</div>
-
+    <div id="main-content">
+        <h1>Lazy-Loaded WebP Gallery</h1>
+        <div id="drop-area">
+            <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
+            <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
+            <div id="upload-status"></div>
+        </div>
+        <div class="gallery" id="gallery"></div>
+        <div id="loading">Loading...</div>
+    </div>
     <script>
         let page = 0;
         let loading = false;
