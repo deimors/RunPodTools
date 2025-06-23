@@ -66,7 +66,32 @@ HTML_TEMPLATE = """
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
             gap: 1em; 
         }
-        .gallery img { width: 100%; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .gallery .image-container {
+            position: relative;
+            width: 100%;
+            border: 2px solid transparent; /* Default border */
+            border-radius: 8px;
+            transition: border-color 0.2s;
+        }
+        .gallery .image-container.selected {
+            border-color: #0078d7; /* Light blue border for selected images */
+        }
+        .gallery img {
+            display: block;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .gallery .checkbox {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            display: none; /* Hidden by default */
+        }
+        .gallery .image-container:hover .checkbox,
+        .gallery .image-container.selected .checkbox {
+            display: block; /* Show checkbox on hover or if selected */
+        }
         #loading { text-align: center; margin: 2em; font-size: 1.2em; color: #888; }
         #drop-area {
             border: 2px dashed #888;
@@ -86,13 +111,6 @@ HTML_TEMPLATE = """
         #upload-status {
             margin-top: 1em;
             color: #007800;
-        }
-        .gallery .image-container {
-            position: relative;
-            width: 100%;
-        }
-        .gallery img {
-            display: block;
         }
         #toolbar {
             position: fixed;
@@ -211,6 +229,13 @@ HTML_TEMPLATE = """
                 const img = document.createElement("img");
                 img.alt = file;
                 
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.className = "checkbox";
+                checkbox.addEventListener("change", () => {
+                    container.classList.toggle("selected", checkbox.checked);
+                });
+
                 const fileExt = file.split('.').pop().toLowerCase();
                 
                 if (fileExt === 'webp') {
@@ -235,6 +260,7 @@ HTML_TEMPLATE = """
                 }
                 
                 container.appendChild(img);
+                container.appendChild(checkbox);
                 observer.observe(container);
                 gallery.appendChild(container);
             });
