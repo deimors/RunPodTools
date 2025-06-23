@@ -15,7 +15,7 @@ if not os.path.isdir(webp_dir):
 
 # Constants
 FILES_PER_PAGE = 12
-ALLOWED_EXTENSIONS = {'webp'}
+ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png'}
 
 app = Flask(__name__)
 
@@ -56,8 +56,8 @@ HTML_TEMPLATE = """
 <body>
     <h1>Lazy-Loaded WebP Gallery</h1>
     <div id="drop-area">
-        <p>Drag &amp; drop a .webp file here to upload,<br>or click to select a file.</p>
-        <input type="file" id="fileElem" accept=".webp" style="display:none" />
+        <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
+        <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
         <div id="upload-status"></div>
     </div>
     <div class="gallery" id="gallery"></div>
