@@ -177,8 +177,8 @@ HTML_TEMPLATE = """
         <button id="gallery-btn" class="active"><i class="fas fa-images"></i>Gallery</button>
         <button id="uploads-btn"><i class="fas fa-upload"></i>Uploads</button>
         <button><i class="fas fa-file-archive"></i>Zips</button>
-        <button><i class="fas fa-check-square"></i>Select All</button>
-        <button><i class="fas fa-times-circle"></i>Clear Selection</button>
+        <button id="select-all-btn"><i class="fas fa-check-square"></i>Select All</button>
+        <button id="clear-selection-btn"><i class="fas fa-times-circle"></i>Clear Selection</button>
         <button><i class="fas fa-file-zipper"></i>Zip Selected</button>
         <button><i class="fas fa-trash"></i>Delete Selected</button>
     </div>
@@ -377,6 +377,24 @@ HTML_TEMPLATE = """
             const result = await response.json();
             uploadStatus.innerText = result.message;
         }
+
+        document.getElementById("toolbar").addEventListener("click", (e) => {
+            if (e.target.closest("#select-all-btn")) {
+                // Select all images
+                document.querySelectorAll(".gallery .image-container").forEach(container => {
+                    const checkbox = container.querySelector(".checkbox");
+                    checkbox.checked = true;
+                    container.classList.add("selected");
+                });
+            } else if (e.target.closest("#clear-selection-btn")) {
+                // Clear selection
+                document.querySelectorAll(".gallery .image-container").forEach(container => {
+                    const checkbox = container.querySelector(".checkbox");
+                    checkbox.checked = false;
+                    container.classList.remove("selected");
+                });
+            }
+        });
     </script>
 </body>
 </html>
