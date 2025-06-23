@@ -1,10 +1,11 @@
 import os
 import sys
-from flask import Flask, send_from_directory, jsonify, render_template_string, abort, request, Response
+from flask import Flask, send_from_directory, jsonify, render_template_string, abort, request, Response, send_file
 from werkzeug.utils import secure_filename
 import io
 from PIL import Image
 import argparse
+import zipfile
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -170,6 +171,55 @@ HTML_TEMPLATE = """
             max-height: 90%;
             border-radius: 8px;
         }
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Center the modal */
+            width: auto; /* Ensure modal width is based on content */
+            height: auto; /* Ensure modal height is based on content */
+            background: rgba(0, 0, 0, 0.8); /* Keep dark curtain */
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: 300px;
+            text-align: center;
+        }
+        .modal-content h2 {
+            margin: 0 0 1em 0;
+            font-size: 1.5em;
+            color: #333;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 0.5em;
+            margin-bottom: 1em;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        .modal-content button {
+            width: 100%;
+            padding: 0.5em;
+            background: #0078d7;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 0.5em;
+        }
+        .modal-content button:hover {
+            background: #005fa3;
+        }
     </style>
 </head>
 <body>
@@ -179,7 +229,7 @@ HTML_TEMPLATE = """
         <button><i class="fas fa-file-archive"></i>Zips</button>
         <button id="select-all-btn"><i class="fas fa-check-square"></i>Select All</button>
         <button id="clear-selection-btn"><i class="fas fa-times-circle"></i>Clear Selection</button>
-        <button><i class="fas fa-file-zipper"></i>Zip Selected</button>
+        <button id="zip-selected-btn"><i class="fas fa-file-zipper"></i>Zip Selected</button>
         <button><i class="fas fa-trash"></i>Delete Selected</button>
     </div>
     <div id="main-content">
@@ -195,6 +245,15 @@ HTML_TEMPLATE = """
     <div id="lightbox">
         <img id="lightbox-img" src="" alt="Lightbox Image">
     </div>
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Enter Filename</h2>
+            <input type="text" id="zip-filename" placeholder="Enter zip filename">
+            <button id="zip-btn">Zip</button>
+            <div id="modal-progress" style="display: none;">Zipping files...</div>
+            <button id="download-btn" style="display: none;">Download</button>
+        </div>
+    </div>
     <script>
         let page = 0;
         let loading = false;
@@ -209,6 +268,12 @@ HTML_TEMPLATE = """
         const dropArea = document.getElementById("drop-area");
         const lightbox = document.getElementById("lightbox");
         const lightboxImg = document.getElementById("lightbox-img");
+        const modal = document.getElementById("modal");
+        const modalTitle = document.getElementById("modal-title"); // Define modalTitle
+        const zipFilenameInput = document.getElementById("zip-filename"); // Define zipFilenameInput
+        const zipBtn = document.getElementById("zip-btn"); // Ensure consistent usage of "zip-btn"
+        const modalProgress = document.getElementById("modal-progress");
+        const downloadBtn = document.getElementById("download-btn");
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -393,6 +458,58 @@ HTML_TEMPLATE = """
                     checkbox.checked = false;
                     container.classList.remove("selected");
                 });
+            } else if (e.target.closest("#zip-selected-btn")) {
+                // Show modal popup
+                modal.style.display = "block";
+                modalTitle.innerText = "Enter Filename"; // Use modalTitle
+                zipFilenameInput.style.display = "block"; // Use zipFilenameInput
+                zipBtn.style.display = "block"; // Use consistent ID
+                modalProgress.style.display = "none";
+                downloadBtn.style.display = "none";
+            }
+        });
+
+        zipBtn.addEventListener("click", async () => {
+            const filename = zipFilenameInput.value.trim(); // Use zipFilenameInput
+            if (!filename) {
+                alert("Please enter a filename.");
+                return;
+            }
+
+            // Start zipping process
+            modalTitle.innerText = "Zipping Files..."; // Use modalTitle
+            zipFilenameInput.style.display = "none"; // Use zipFilenameInput
+            zipBtn.style.display = "none"; // Use consistent ID
+            modalProgress.style.display = "block";
+
+            const selectedFiles = Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
+                .map(img => img.alt);
+
+            const response = await fetch("/zip", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename, files: selectedFiles, directory: currentDir }) // Include directory in request
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                modalTitle.innerText = "Zip Completed"; // Use modalTitle
+                modalProgress.style.display = "none";
+                downloadBtn.style.display = "block";
+                downloadBtn.onclick = () => {
+                    window.location.href = `/download/${result.filename}`;
+                    modal.style.display = "none";
+                };
+            } else {
+                modalTitle.innerText = "Error Zipping Files"; // Use modalTitle
+                modalProgress.style.display = "none";
+            }
+        });
+
+        // Close modal when clicking outside
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) { // Close modal if clicking outside the modal content
+                modal.style.display = "none";
             }
         });
     </script>
@@ -444,6 +561,38 @@ def upload_file():
         file.save(os.path.join(upload_dir, filename))
         return jsonify({"message": f"File '{filename}' uploaded successfully"}), 200
     return jsonify({"message": "Invalid file type"}), 400
+
+@app.route("/zip", methods=["POST"])
+def zip_files():
+    """Compress selected files into a zip archive."""
+    data = request.json
+    filename = secure_filename(data.get("filename", "archive.zip"))
+    files = data.get("files", [])
+    directory = data.get("directory", "webp")  # Get directory from POST request payload
+
+    if not files:
+        return jsonify({"success": False, "message": "No files selected"}), 400
+
+    target_dir = webp_dir if directory == "webp" else upload_dir
+    zip_path = os.path.join(upload_dir, filename)
+    try:
+        with zipfile.ZipFile(zip_path, "w") as zipf:
+            for file in files:
+                file_path = os.path.join(target_dir, file)
+                if os.path.isfile(file_path):
+                    zipf.write(file_path, arcname=file)
+        return jsonify({"success": True, "filename": filename}), 200
+    except Exception as e:
+        print(f"Error creating zip: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/download/<path:filename>")
+def download_file(filename):
+    """Serve the zip file for download."""
+    zip_path = os.path.join(upload_dir, filename)
+    if not os.path.isfile(zip_path):
+        abort(404)
+    return send_file(zip_path, as_attachment=True)
 
 if __name__ == "__main__":
     print(f"Serving from: {webp_dir}")
