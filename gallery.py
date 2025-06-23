@@ -231,7 +231,7 @@ HTML_TEMPLATE = """
         <button id="select-all-btn"><i class="fas fa-check-square"></i>Select All</button>
         <button id="clear-selection-btn"><i class="fas fa-times-circle"></i>Clear Selection</button>
         <button id="zip-selected-btn"><i class="fas fa-file-zipper"></i>Zip Selected</button>
-        <button><i class="fas fa-trash"></i>Delete Selected</button>
+        <button id="delete-selected-btn"><i class="fas fa-trash"></i>Delete Selected</button>
     </div>
     <div id="main-content">
         <h1 id="main-heading">Gallery</h1>
@@ -477,6 +477,17 @@ HTML_TEMPLATE = """
                 zipBtn.style.display = "block"; // Use consistent ID
                 modalProgress.style.display = "none";
                 downloadBtn.style.display = "none";
+            } else if (e.target.closest("#delete-selected-btn")) {
+                // Delete selected files
+                const selectedFiles = Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
+                    .map(img => img.alt);
+                if (selectedFiles.length === 0) {
+                    alert("No files selected.");
+                    return;
+                }
+                if (confirm(`Are you sure you want to delete ${selectedFiles.length} file(s)?`)) {
+                    deleteFiles(selectedFiles);
+                }
             }
         });
 
@@ -516,6 +527,30 @@ HTML_TEMPLATE = """
                 modalProgress.style.display = "none";
             }
         });
+
+        async function deleteFiles(files) {
+            const response = await fetch("/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ files, directory: currentDir })
+            });
+            const result = await response.json();
+            if (result.success) {
+                // Remove deleted files from gallery
+                result.deleted.forEach(filename => {
+                    const imgContainer = Array.from(gallery.children).find(container => {
+                        const img = container.querySelector("img");
+                        return img && img.alt === filename;
+                    });
+                    if (imgContainer) {
+                        gallery.removeChild(imgContainer);
+                    }
+                });
+                alert(result.message);
+            } else {
+                alert("Error deleting files: " + result.message);
+            }
+        }
 
         // Close modal when clicking outside
         modal.addEventListener("click", (e) => {
@@ -604,6 +639,39 @@ def download_file(filename):
     if not os.path.isfile(zip_path):
         abort(404)
     return send_file(zip_path, as_attachment=True)
+
+@app.route("/delete", methods=["POST"])
+def delete_files():
+    """Delete selected files from disk."""
+    data = request.json
+    files = data.get("files", [])
+    directory = data.get("directory", "webp")
+    
+    if not files:
+        return jsonify({"success": False, "message": "No files selected"}), 400
+    
+    target_dir = webp_dir if directory == "webp" else upload_dir
+    deleted = []
+    errors = []
+    
+    for file in files:
+        file_path = os.path.join(target_dir, file)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+                deleted.append(file)
+        except Exception as e:
+            errors.append(f"{file}: {str(e)}")
+    
+    success = len(deleted) > 0 and len(errors) == 0
+    message = f"Deleted {len(deleted)} files" if success else f"Errors: {', '.join(errors)}"
+    
+    return jsonify({
+        "success": success, 
+        "message": message,
+        "deleted": deleted,
+        "errors": errors
+    }), 200 if success else 500
 
 if __name__ == "__main__":
     print(f"Serving from: {webp_dir}")
