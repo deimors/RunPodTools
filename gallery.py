@@ -123,6 +123,9 @@ HTML_TEMPLATE = """
         #toolbar button:hover {
             background: #005fa3;
         }
+        #toolbar button.active {
+            background: #005fa3; /* Highlight active button */
+        }
         #toolbar button i {
             margin-right: 0.5em;
         }
@@ -130,7 +133,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div id="toolbar">
-        <button id="gallery-btn"><i class="fas fa-images"></i>Gallery</button>
+        <button id="gallery-btn" class="active"><i class="fas fa-images"></i>Gallery</button>
         <button id="uploads-btn"><i class="fas fa-upload"></i>Uploads</button>
         <button><i class="fas fa-file-archive"></i>Zips</button>
         <button><i class="fas fa-check-square"></i>Select All</button>
@@ -139,7 +142,7 @@ HTML_TEMPLATE = """
         <button><i class="fas fa-trash"></i>Delete Selected</button>
     </div>
     <div id="main-content">
-        <h1>Lazy-Loaded WebP Gallery</h1>
+        <h1 id="main-heading">Gallery</h1>
         <div id="drop-area">
             <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
             <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
@@ -156,6 +159,9 @@ HTML_TEMPLATE = """
 
         const gallery = document.getElementById("gallery");
         const loadedImages = new Map();
+        const mainHeading = document.getElementById("main-heading");
+        const galleryBtn = document.getElementById("gallery-btn");
+        const uploadsBtn = document.getElementById("uploads-btn");
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -231,10 +237,15 @@ HTML_TEMPLATE = """
             done = false;
             gallery.innerHTML = ""; // Clear current gallery
             loadMore(); // Load new directory contents
+
+            // Update heading and button states
+            mainHeading.innerText = dir === "webp" ? "Gallery" : "Uploads Directory";
+            galleryBtn.classList.toggle("active", dir === "webp");
+            uploadsBtn.classList.toggle("active", dir === "uploads");
         }
 
-        document.getElementById("gallery-btn").addEventListener("click", () => switchDirectory("webp"));
-        document.getElementById("uploads-btn").addEventListener("click", () => switchDirectory("uploads"));
+        galleryBtn.addEventListener("click", () => switchDirectory("webp"));
+        uploadsBtn.addEventListener("click", () => switchDirectory("uploads"));
 
         // Initial load
         loadMore();
