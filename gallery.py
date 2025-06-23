@@ -1,7 +1,9 @@
 import os
 import sys
-from flask import Flask, send_from_directory, jsonify, render_template_string, abort, request
+from flask import Flask, send_from_directory, jsonify, render_template_string, abort, request, Response
 from werkzeug.utils import secure_filename
+import io
+from PIL import Image
 
 # Validate input directory
 if len(sys.argv) != 2:
@@ -22,6 +24,25 @@ app = Flask(__name__)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+@app.route("/static-frame/<path:filename>")
+def static_frame(filename):
+    """Serve the first frame of an animated webp as a static image"""
+    full_path = os.path.join(webp_dir, filename)
+    if not os.path.isfile(full_path) or not filename.lower().endswith('.webp'):
+        abort(404)
+    
+    try:
+        with Image.open(full_path) as img:
+            # Get the first frame only
+            img.seek(0)
+            output = io.BytesIO()
+            img.save(output, format='WEBP')
+            output.seek(0)
+            return Response(output.getvalue(), mimetype='image/webp')
+    except Exception as e:
+        print(f"Error processing {filename}: {e}")
+        return send_from_directory(webp_dir, filename)
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -29,7 +50,7 @@ HTML_TEMPLATE = """
     <title>Lazy WebP Gallery</title>
     <style>
         body { font-family: sans-serif; margin: 0; padding: 1em; background: #f8f8f8; }
-        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 1em; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1em; }
         .gallery img { width: 100%; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
         #loading { text-align: center; margin: 2em; font-size: 1.2em; color: #888; }
         #drop-area {
@@ -50,6 +71,13 @@ HTML_TEMPLATE = """
         #upload-status {
             margin-top: 1em;
             color: #007800;
+        }
+        .gallery .image-container {
+            position: relative;
+            width: 100%;
+        }
+        .gallery img {
+            display: block;
         }
     </style>
 </head>
@@ -73,15 +101,16 @@ HTML_TEMPLATE = """
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                const img = entry.target;
+                const imgContainer = entry.target;
+                const img = imgContainer.querySelector('img');
                 if (entry.isIntersecting) {
                     if (!img.dataset.src) return;
-                    img.src = img.dataset.src;
-                    loadedImages.set(img, true);
+                    img.src = img.dataset.static || img.dataset.src;
+                    loadedImages.set(imgContainer, true);
                 } else {
-                    if (loadedImages.has(img)) {
+                    if (loadedImages.has(imgContainer)) {
                         img.removeAttribute("src");  // Unload image
-                        loadedImages.delete(img);
+                        loadedImages.delete(imgContainer);
                     }
                 }
             });
@@ -105,11 +134,33 @@ HTML_TEMPLATE = """
             }
 
             data.files.forEach(file => {
+                const container = document.createElement("div");
+                container.className = "image-container";
+                
                 const img = document.createElement("img");
-                img.src = `/webp/${file}`;
                 img.alt = file;
-                observer.observe(img);
-                gallery.appendChild(img);
+                
+                if (file.toLowerCase().endsWith('.webp')) {
+                    // For WebP files, use the static frame initially
+                    img.dataset.static = `/static-frame/${file}`;
+                    img.dataset.animated = `/webp/${file}`;
+                    
+                    // Play animation on hover
+                    container.addEventListener("mouseenter", () => {
+                        img.src = img.dataset.animated;
+                    });
+                    
+                    // Return to static frame when not hovering
+                    container.addEventListener("mouseleave", () => {
+                        img.src = img.dataset.static;
+                    });
+                }
+                
+                img.dataset.src = `/webp/${file}`;
+                container.appendChild(img);
+                
+                observer.observe(container);
+                gallery.appendChild(container);
             });
 
             page++;
@@ -117,7 +168,7 @@ HTML_TEMPLATE = """
         }
 
         // Initial load
-         loadMore();
+        loadMore();
 
         // Infinite scroll
         window.addEventListener("scroll", () => {
