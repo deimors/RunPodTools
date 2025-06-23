@@ -4,15 +4,22 @@ from flask import Flask, send_from_directory, jsonify, render_template_string, a
 from werkzeug.utils import secure_filename
 import io
 from PIL import Image
+import argparse
 
-# Validate input directory
-if len(sys.argv) != 2:
-    print(f"Usage: {sys.argv[0]} /path/to/webp_folder")
-    sys.exit(1)
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
+parser.add_argument("webp_dir", help="Path to the WebP folder")
+parser.add_argument("-u", "--upload_dir", help="Path to the alternate upload directory", default=None)
+args = parser.parse_args()
 
-webp_dir = os.path.abspath(sys.argv[1])
+webp_dir = os.path.abspath(args.webp_dir)
 if not os.path.isdir(webp_dir):
     print(f"Error: '{webp_dir}' is not a valid directory.")
+    sys.exit(1)
+
+upload_dir = os.path.abspath(args.upload_dir) if args.upload_dir else webp_dir
+if not os.path.isdir(upload_dir):
+    print(f"Error: '{upload_dir}' is not a valid directory.")
     sys.exit(1)
 
 # Constants
@@ -247,10 +254,11 @@ def upload_file():
         return jsonify({"message": "No selected file"}), 400
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        file.save(os.path.join(webp_dir, filename))
+        file.save(os.path.join(upload_dir, filename))
         return jsonify({"message": f"File '{filename}' uploaded successfully"}), 200
     return jsonify({"message": "Invalid file type"}), 400
 
 if __name__ == "__main__":
     print(f"Serving from: {webp_dir}")
+    print(f"Uploads will be saved to: {upload_dir}")
     app.run(host="0.0.0.0", port=3137)
