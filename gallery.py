@@ -219,6 +219,7 @@ HTML_TEMPLATE = """
             if (data.files.length === 0) {
                 document.getElementById("loading").innerText = "No more files.";
                 done = true;
+                loading = false;
                 return;
             }
 
@@ -359,8 +360,6 @@ def list_files():
     # Include all allowed extensions in the file list
     all_files = sorted([f for f in os.listdir(target_dir) 
                       if any(f.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)])
-    
-    print(f"all_files: {all_files}")
     
     start = page * FILES_PER_PAGE
     end = start + FILES_PER_PAGE
