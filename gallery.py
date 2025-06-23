@@ -211,7 +211,9 @@ HTML_TEMPLATE = """
                 const img = document.createElement("img");
                 img.alt = file;
                 
-                if (file.toLowerCase().endsWith('.webp')) {
+                const fileExt = file.split('.').pop().toLowerCase();
+                
+                if (fileExt === 'webp') {
                     // For WebP files, use the static frame initially
                     img.dataset.static = `/static-frame/${file}`;
                     img.dataset.animated = `/${currentDir}/${file}`;
@@ -225,11 +227,14 @@ HTML_TEMPLATE = """
                     container.addEventListener("mouseleave", () => {
                         img.src = img.dataset.static;
                     });
+                    
+                    img.dataset.src = img.dataset.static;
+                } else if (['jpg', 'jpeg', 'png'].includes(fileExt)) {
+                    // For static image formats, just set the src directly
+                    img.dataset.src = `/${currentDir}/${file}`;
                 }
                 
-                img.dataset.src = `/${currentDir}/${file}`;
                 container.appendChild(img);
-                
                 observer.observe(container);
                 gallery.appendChild(container);
             });
@@ -317,7 +322,13 @@ def list_files():
     dir_name = request.args.get("dir", "webp")
     page = int(request.args.get("page", 0))
     target_dir = webp_dir if dir_name == "webp" else upload_dir
-    all_files = sorted([f for f in os.listdir(target_dir) if f.lower().endswith('.webp')])
+    
+    # Include all allowed extensions in the file list
+    all_files = sorted([f for f in os.listdir(target_dir) 
+                      if any(f.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)])
+    
+    print(f"all_files: {all_files}")
+    
     start = page * FILES_PER_PAGE
     end = start + FILES_PER_PAGE
     return jsonify({"files": all_files[start:end]})
