@@ -153,6 +153,23 @@ HTML_TEMPLATE = """
         #drop-area.visible {
             display: block; /* Show upload control when active */
         }
+        #lightbox {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        #lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -175,6 +192,9 @@ HTML_TEMPLATE = """
         <div class="gallery" id="gallery"></div>
         <div id="loading">Loading...</div>
     </div>
+    <div id="lightbox">
+        <img id="lightbox-img" src="" alt="Lightbox Image">
+    </div>
     <script>
         let page = 0;
         let loading = false;
@@ -187,6 +207,8 @@ HTML_TEMPLATE = """
         const galleryBtn = document.getElementById("gallery-btn");
         const uploadsBtn = document.getElementById("uploads-btn");
         const dropArea = document.getElementById("drop-area");
+        const lightbox = document.getElementById("lightbox");
+        const lightboxImg = document.getElementById("lightbox-img");
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -259,6 +281,13 @@ HTML_TEMPLATE = """
                     // For static image formats, just set the src directly
                     img.dataset.src = `/${currentDir}/${file}`;
                 }
+
+                // Add click event for lightbox
+                img.addEventListener("click", (e) => {
+                    if (e.target.className === "checkbox") return; // Ignore clicks on checkbox
+                    lightboxImg.src = fileExt === 'webp' ? img.dataset.animated : img.dataset.src;
+                    lightbox.style.display = "flex";
+                });
                 
                 container.appendChild(img);
                 container.appendChild(checkbox);
@@ -295,6 +324,12 @@ HTML_TEMPLATE = """
 
         galleryBtn.addEventListener("click", () => switchDirectory("webp"));
         uploadsBtn.addEventListener("click", () => switchDirectory("uploads"));
+
+        // Close lightbox on click
+        lightbox.addEventListener("click", () => {
+            lightbox.style.display = "none";
+            lightboxImg.src = "";
+        });
 
         // Initial load
         loadMore();
