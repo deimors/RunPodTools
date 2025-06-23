@@ -241,6 +241,13 @@ HTML_TEMPLATE = """
 
             page++;
             loading = false;
+
+            // Check if enough images are loaded to create a scrollbar
+            const viewportHeight = window.innerHeight;
+            const contentHeight = document.body.scrollHeight;
+            if (contentHeight <= viewportHeight && !done) {
+                loadMore(); // Continue loading more images if no scrollbar yet
+            }
         }
 
         function switchDirectory(dir) {
