@@ -130,8 +130,8 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div id="toolbar">
-        <button><i class="fas fa-images"></i>Gallery</button>
-        <button><i class="fas fa-upload"></i>Uploads</button>
+        <button id="gallery-btn"><i class="fas fa-images"></i>Gallery</button>
+        <button id="uploads-btn"><i class="fas fa-upload"></i>Uploads</button>
         <button><i class="fas fa-file-archive"></i>Zips</button>
         <button><i class="fas fa-check-square"></i>Select All</button>
         <button><i class="fas fa-times-circle"></i>Clear Selection</button>
@@ -152,6 +152,7 @@ HTML_TEMPLATE = """
         let page = 0;
         let loading = false;
         let done = false;
+        let currentDir = "webp"; // Default to WebP directory
 
         const gallery = document.getElementById("gallery");
         const loadedImages = new Map();
@@ -181,7 +182,7 @@ HTML_TEMPLATE = """
             loading = true;
             document.getElementById("loading").style.display = "block";
 
-            const response = await fetch(`/files?page=${page}`);
+            const response = await fetch(`/files?dir=${currentDir}&page=${page}`);
             const data = await response.json();
 
             if (data.files.length === 0) {
@@ -200,7 +201,7 @@ HTML_TEMPLATE = """
                 if (file.toLowerCase().endsWith('.webp')) {
                     // For WebP files, use the static frame initially
                     img.dataset.static = `/static-frame/${file}`;
-                    img.dataset.animated = `/webp/${file}`;
+                    img.dataset.animated = `/${currentDir}/${file}`;
                     
                     // Play animation on hover
                     container.addEventListener("mouseenter", () => {
@@ -213,7 +214,7 @@ HTML_TEMPLATE = """
                     });
                 }
                 
-                img.dataset.src = `/webp/${file}`;
+                img.dataset.src = `/${currentDir}/${file}`;
                 container.appendChild(img);
                 
                 observer.observe(container);
@@ -223,6 +224,17 @@ HTML_TEMPLATE = """
             page++;
             loading = false;
         }
+
+        function switchDirectory(dir) {
+            currentDir = dir;
+            page = 0;
+            done = false;
+            gallery.innerHTML = ""; // Clear current gallery
+            loadMore(); // Load new directory contents
+        }
+
+        document.getElementById("gallery-btn").addEventListener("click", () => switchDirectory("webp"));
+        document.getElementById("uploads-btn").addEventListener("click", () => switchDirectory("uploads"));
 
         // Initial load
         loadMore();
@@ -282,8 +294,10 @@ def index():
 
 @app.route("/files")
 def list_files():
+    dir_name = request.args.get("dir", "webp")
     page = int(request.args.get("page", 0))
-    all_files = sorted([f for f in os.listdir(webp_dir) if f.lower().endswith('.webp')])
+    target_dir = webp_dir if dir_name == "webp" else upload_dir
+    all_files = sorted([f for f in os.listdir(target_dir) if f.lower().endswith('.webp')])
     start = page * FILES_PER_PAGE
     end = start + FILES_PER_PAGE
     return jsonify({"files": all_files[start:end]})
@@ -294,6 +308,13 @@ def webp_file(filename):
     if not os.path.isfile(full_path):
         abort(404)
     return send_from_directory(webp_dir, filename)
+
+@app.route("/uploads/<path:filename>")
+def uploads_file(filename):
+    full_path = os.path.join(upload_dir, filename)
+    if not os.path.isfile(full_path):
+        abort(404)
+    return send_from_directory(upload_dir, filename)
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
