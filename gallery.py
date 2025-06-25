@@ -245,6 +245,18 @@ HTML_TEMPLATE = """
     </div>
     <div id="lightbox">
         <img id="lightbox-img" src="" alt="Lightbox Image">
+        <div id="lightbox-info" style="
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 0.9em;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+        "></div>
     </div>
     <div id="modal" class="modal">
         <div class="modal-content">
@@ -430,6 +442,7 @@ HTML_TEMPLATE = """
         lightbox.addEventListener("click", () => {
             lightbox.style.display = "none";
             lightboxImg.src = "";
+            lightboxInfo.innerText = ""; // Clear info text
         });
 
         // Initial load
@@ -590,6 +603,26 @@ HTML_TEMPLATE = """
                 const deleteBtn = document.getElementById("delete-btn");
                 if (deleteBtn) deleteBtn.remove(); // Remove delete button from modal
             }
+        });
+
+        const lightboxInfo = document.createElement("div");
+        lightboxInfo.id = "lightbox-info";
+        lightboxInfo.style.position = "absolute";
+        lightboxInfo.style.bottom = "20px";
+        lightboxInfo.style.left = "50%";
+        lightboxInfo.style.transform = "translateX(-50%)";
+        lightboxInfo.style.color = "#fff";
+        lightboxInfo.style.fontSize = "0.9em";
+        lightboxInfo.style.textAlign = "center";
+        lightboxInfo.style.background = "rgba(0, 0, 0, 0.7)";
+        lightboxInfo.style.padding = "5px 10px";
+        lightboxInfo.style.borderRadius = "4px";
+        lightbox.appendChild(lightboxInfo);
+
+        lightboxImg.addEventListener("load", () => {
+            const filename = lightboxImg.src.split("/").pop();
+            const resolution = `${lightboxImg.naturalWidth} x ${lightboxImg.naturalHeight}`;
+            lightboxInfo.innerText = `${filename} (${resolution})`;
         });
     </script>
 </body>
