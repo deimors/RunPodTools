@@ -248,11 +248,30 @@ HTML_TEMPLATE = """
     </div>
     <div id="modal" class="modal">
         <div class="modal-content">
-            <h2 id="modal-title">Enter Filename</h2>
-            <input type="text" id="zip-filename" placeholder="Enter zip filename">
-            <button id="zip-btn">Zip</button>
-            <div id="modal-progress" style="display: none;">Zipping files...</div>
-            <button id="download-btn" style="display: none;">Download</button>
+            <!-- Delete Confirmation Step -->
+            <div id="delete-confirmation" style="display: none;">
+                <h2 id="modal-title">Delete Confirmation</h2>
+                <button id="delete-btn" style="width: 100%; padding: 0.5em; background: #d9534f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-bottom: 0.5em;">Delete</button>
+            </div>
+
+            <!-- Zip Filename Input Step -->
+            <div id="zip-filename-step" style="display: none;">
+                <h2 id="modal-title">Enter Filename</h2>
+                <input type="text" id="zip-filename" placeholder="Enter zip filename" style="width: 100%; padding: 0.5em; margin-bottom: 1em; border: 1px solid #ddd; border-radius: 4px; font-size: 1em;">
+                <button id="zip-btn" style="width: 100%; padding: 0.5em; background: #0078d7; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-bottom: 0.5em;">Zip</button>
+            </div>
+
+            <!-- Zip Progress Step -->
+            <div id="zip-progress-step" style="display: none;">
+                <h2 id="modal-title">Zipping Files...</h2>
+                <div id="modal-progress" style="text-align: center; font-size: 1.2em; color: #888;">Please wait...</div>
+            </div>
+
+            <!-- Zip Download Step -->
+            <div id="zip-download-step" style="display: none;">
+                <h2 id="modal-title">Zip Completed</h2>
+                <button id="download-btn" style="width: 100%; padding: 0.5em; background: #0078d7; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-bottom: 0.5em;">Download</button>
+            </div>
         </div>
     </div>
     <script>
@@ -276,6 +295,13 @@ HTML_TEMPLATE = """
         const modalProgress = document.getElementById("modal-progress");
         const downloadBtn = document.getElementById("download-btn");
 
+        const modalSteps = {
+            deleteConfirmation: document.getElementById("delete-confirmation"),
+            zipFilenameStep: document.getElementById("zip-filename-step"),
+            zipProgressStep: document.getElementById("zip-progress-step"),  
+            zipDownloadStep: document.getElementById("zip-download-step")
+        };
+
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 const imgContainer = entry.target;
@@ -295,6 +321,16 @@ HTML_TEMPLATE = """
             rootMargin: "1000px 0px",  // Start loading before visible
             threshold: 0.01
         });
+
+        function showModal(step) {
+            modal.style.display = "block";
+            Object.values(modalSteps).forEach(s => s.style.display = "none");
+            modalSteps[step].style.display = "block";
+        }
+
+        function hideModal() {
+            modal.style.display = "none";
+        }
 
         function createImageElement(fileName, filePath, isWebP = false, animatedPath = null) {
             const container = document.createElement("div");
@@ -470,13 +506,7 @@ HTML_TEMPLATE = """
                     container.classList.remove("selected");
                 });
             } else if (e.target.closest("#zip-selected-btn")) {
-                // Show modal popup
-                modal.style.display = "block";
-                modalTitle.innerText = "Enter Filename"; // Use modalTitle
-                zipFilenameInput.style.display = "block"; // Use zipFilenameInput
-                zipBtn.style.display = "block"; // Use consistent ID
-                modalProgress.style.display = "none";
-                downloadBtn.style.display = "none";
+                showModal("zipFilenameStep"); // Show zip filename input step
             } else if (e.target.closest("#delete-selected-btn")) {
                 const selectedFiles = Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
                     .map(img => img.alt);
@@ -486,32 +516,13 @@ HTML_TEMPLATE = """
                 }
 
                 // Show delete confirmation modal
-                modal.style.display = "block";
-                modalTitle.innerText = `Delete ${selectedFiles.length} file(s)?`;
-                zipFilenameInput.style.display = "none"; // Hide filename input
-                zipBtn.style.display = "none"; // Hide zip button
-                modalProgress.style.display = "none"; // Hide progress
-                downloadBtn.style.display = "none"; // Hide download button
+                showModal("deleteConfirmation");
 
-                const deleteBtn = document.createElement("button");
-                deleteBtn.id = "delete-btn";
-                deleteBtn.innerText = "Delete";
-                deleteBtn.style.width = "100%";
-                deleteBtn.style.padding = "0.5em";
-                deleteBtn.style.background = "#d9534f"; // Red color for delete
-                deleteBtn.style.color = "#fff";
-                deleteBtn.style.border = "none";
-                deleteBtn.style.borderRadius = "4px";
-                deleteBtn.style.cursor = "pointer";
-                deleteBtn.style.fontSize = "1em";
-                deleteBtn.style.marginBottom = "0.5em";
-
-                deleteBtn.addEventListener("click", async () => {
-                    modal.style.display = "none";
+                const deleteBtn = document.getElementById("delete-btn");
+                deleteBtn.onclick = async () => {
+                    hideModal();
                     await deleteFiles(selectedFiles);
-                });
-
-                modal.querySelector(".modal-content").appendChild(deleteBtn);
+                };
             }
         });
 
@@ -523,10 +534,7 @@ HTML_TEMPLATE = """
             }
 
             // Start zipping process
-            modalTitle.innerText = "Zipping Files..."; // Use modalTitle
-            zipFilenameInput.style.display = "none"; // Use zipFilenameInput
-            zipBtn.style.display = "none"; // Use consistent ID
-            modalProgress.style.display = "block";
+            showModal("zipProgressStep");
 
             const selectedFiles = Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
                 .map(img => img.alt);
@@ -539,12 +547,11 @@ HTML_TEMPLATE = """
 
             const result = await response.json();
             if (result.success) {
-                modalTitle.innerText = "Zip Completed"; // Use modalTitle
-                modalProgress.style.display = "none";
-                downloadBtn.style.display = "block";
+                showModal("zipDownloadStep");
+
                 downloadBtn.onclick = () => {
                     window.location.href = `/download/${result.filename}`;
-                    modal.style.display = "none";
+                    hideModal();
                 };
             } else {
                 modalTitle.innerText = "Error Zipping Files"; // Use modalTitle
@@ -579,7 +586,7 @@ HTML_TEMPLATE = """
         // Close modal when clicking outside
         modal.addEventListener("click", (e) => {
             if (e.target === modal) {
-                modal.style.display = "none";
+                hideModal();
                 const deleteBtn = document.getElementById("delete-btn");
                 if (deleteBtn) deleteBtn.remove(); // Remove delete button from modal
             }
