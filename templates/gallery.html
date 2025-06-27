@@ -44,7 +44,8 @@
         .gallery { 
             display: grid; 
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
-            gap: 1em; 
+            gap: 1em;
+            grid-auto-rows: 1fr; /* Make grid items take equal height */
         }
         .gallery .image-container {
             position: relative;
@@ -53,12 +54,14 @@
             border-radius: 8px;
             transition: border-color 0.2s;
         }
-        .gallery .image-container.selected {
-            border-color: #0078d7; /* Light blue border for selected images */
+        .gallery .image-wrapper {
+            position: relative; /* Make this a positioning context for sort-value */
         }
         .gallery img {
             display: block;
             width: 100%;
+            height: auto; /* Keep aspect ratio */
+            object-fit: contain; /* Ensure entire image is visible */
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
@@ -71,6 +74,18 @@
         .gallery .image-container:hover .checkbox,
         .gallery .image-container.selected .checkbox {
             display: block; /* Show checkbox on hover or if selected */
+        }
+        .gallery .image-container .sort-value {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 10;
         }
         #loading { text-align: center; margin: 2em; font-size: 1.2em; color: #888; }
         #drop-area {
@@ -251,6 +266,18 @@
             font-weight: normal;
             text-align: center; /* Center-align the group names */
         }
+        .gallery .image-container .sort-value {
+            position: absolute;
+            bottom: 8px; /* Fixed distance from bottom of container */
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 10; /* Ensure it's above the image */
+        }
     </style>
 </head>
 <body>
@@ -391,9 +418,12 @@
             modal.style.display = "none";
         }
 
-        function createImageElement(fileName, filePath, isWebP = false, animatedPath = null) {
+        function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null) {
             const container = document.createElement("div");
             container.className = "image-container";
+
+            const imageWrapper = document.createElement("div");
+            imageWrapper.className = "image-wrapper";
 
             const img = document.createElement("img");
             img.alt = fileName;
@@ -402,6 +432,13 @@
             checkbox.type = "checkbox";
             checkbox.className = "checkbox";
             
+            if (sortValue) {
+                const sortValueElement = document.createElement("div");
+                sortValueElement.className = "sort-value";
+                sortValueElement.textContent = sortValue;
+                imageWrapper.appendChild(sortValueElement);
+            }
+
             // Handle shift+click selection
             checkbox.addEventListener("click", (e) => {
                 if (e.shiftKey && lastSelectedIndex >= 0) {
@@ -450,7 +487,8 @@
                 lightbox.style.display = "flex";
             });
 
-            container.appendChild(img);
+            imageWrapper.appendChild(img);
+            container.appendChild(imageWrapper);
             container.appendChild(checkbox);
             return container;
         }
@@ -473,18 +511,26 @@
             }
 
             data.files.forEach(file => {
-                const fileName = file.name; // Extract filename from the response structure
+                const fileName = file.name;
                 const fileExt = fileName.split('.').pop().toLowerCase();
                 const isWebP = fileExt === 'webp';
                 const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
                 const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
-                const fileSize = file.size;
 
                 // Store metadata in the cache
                 const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
                 fileMetadataCache[cacheKey] = file;
 
-                const container = createImageElement(fileName, filePath, isWebP, animatedPath);
+                let sortValue = null;
+                if (sortBy.value === "date") {
+                    sortValue = new Date(file.last_modified).toLocaleString();
+                } else if (sortBy.value === "filename") {
+                    sortValue = fileName;
+                } else if (sortBy.value === "size") {
+                    sortValue = formatFileSize(file.size_bytes || 0);
+                }
+
+                const container = createImageElement(fileName, filePath, isWebP, animatedPath, sortValue);
                 gallery.appendChild(container);
             });
 
