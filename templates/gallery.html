@@ -236,6 +236,7 @@
         let loading = false;
         let done = false;
         let currentDir = "webp"; // Default to WebP directory
+        let lastSelectedIndex = -1; // Track the last selected image index
 
         const gallery = document.getElementById("gallery");
         const loadedImages = new Map();
@@ -300,6 +301,30 @@
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.className = "checkbox";
+            
+            // Handle shift+click selection
+            checkbox.addEventListener("click", (e) => {
+                if (e.shiftKey && lastSelectedIndex >= 0) {
+                    const allContainers = Array.from(document.querySelectorAll(".gallery .image-container"));
+                    const currentIndex = allContainers.indexOf(container);
+                    
+                    // Select all images between last selected and current
+                    const start = Math.min(lastSelectedIndex, currentIndex);
+                    const end = Math.max(lastSelectedIndex, currentIndex);
+                    
+                    for (let i = start; i <= end; i++) {
+                        const targetContainer = allContainers[i];
+                        const targetCheckbox = targetContainer.querySelector(".checkbox");
+                        targetCheckbox.checked = true;
+                        targetContainer.classList.add("selected");
+                    }
+                }
+                
+                // Update last selected index
+                const allContainers = Array.from(document.querySelectorAll(".gallery .image-container"));
+                lastSelectedIndex = allContainers.indexOf(container);
+            });
+            
             checkbox.addEventListener("change", () => {
                 container.classList.toggle("selected", checkbox.checked);
             });
