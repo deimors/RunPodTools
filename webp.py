@@ -88,13 +88,6 @@ def extract_webp_animation_metadata(filename):
             # Move to next chunk (8 bytes for header + chunk data size, padded to even)
             pointer += 8 + chunk_size + (chunk_size & 1)
         
-        # Process collected metadata
-        if not metadata["is_animated"]:
-            return "Error: This WebP file is not animated."
-        
-        if metadata["frame_count"] == 0:
-            return "Error: No animation frames found."
-        
         # Calculate total duration and frame rate
         if metadata["frame_durations"]:
             metadata["total_duration_ms"] = sum(metadata["frame_durations"])
