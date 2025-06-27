@@ -563,14 +563,16 @@
             const fileMetadata = fileMetadataCache[cacheKey];
 
             if (fileMetadata) {
-                const resolution = fileMetadata.resolution || "Unknown resolution";
-                const frames = fileMetadata.frames || "Unknown frames";
-                const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "Unknown duration";
-                const frameRate = fileMetadata.frame_rate ? `${fileMetadata.frame_rate.toFixed(2)} fps` : "Unknown frame rate";
+                const resolution = fileMetadata.resolution ? `${fileMetadata.resolution}` : "";
+                const frames = fileMetadata.frames ? `Frames: ${fileMetadata.frames}` : "";
+                const duration = fileMetadata.duration_seconds ? `Duration: ${fileMetadata.duration_seconds.toFixed(2)}s` : "";
+                const frameRate = fileMetadata.frame_rate ? `Frame Rate: ${fileMetadata.frame_rate.toFixed(2)} fps` : "";
 
-                lightboxInfo.innerText = `${filename} (${resolution}) | Frames: ${frames} | Duration: ${duration} | Frame Rate: ${frameRate}`;
+                lightboxInfo.innerText = [filename, resolution, frames, duration, frameRate]
+                    .filter(Boolean) // Remove empty strings
+                    .join(" | ");
             } else {
-                lightboxInfo.innerText = `${filename} | Metadata not available`;
+                lightboxInfo.innerText = filename;
             }
         });
     </script>
