@@ -6,7 +6,7 @@
     <style>
         body { font-family: sans-serif; margin: 0; padding: 1em; background: #f8f8f8; }
         #main-content {
-            margin-left: 300px; /* Add margin to avoid toolbar overlap */
+            margin-left: 160px; /* Add margin to avoid toolbar overlap */
         }
         .gallery { 
             display: grid; 
@@ -67,9 +67,9 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-            padding: 1em;
+            padding: 0.5em;
             z-index: 1000;
-            width: 200px;
+            width: 120px;
         }
         #toolbar button {
             display: flex;
@@ -177,17 +177,47 @@
         .modal-content button:hover {
             background: #005fa3;
         }
+
+        .toolbar-group {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-top: 1em;
+            padding: 0.8em 0.5em 0.3em;
+            position: relative;
+        }
+        .toolbar-group:first-of-type {
+            margin-top: 0.3em; /* Remove top margin for the first group */
+        }
+        .toolbar-group-title {
+            position: absolute;
+            top: -0.6em;
+            left: 10px;
+            background: #fff;
+            padding: 0 0.3em;
+            font-size: 0.8em;
+            color: #aaa;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
     <div id="toolbar">
-        <button id="gallery-btn" class="active"><i class="fas fa-images"></i>Gallery</button>
-        <button id="uploads-btn"><i class="fas fa-upload"></i>Uploads</button>
-        <button><i class="fas fa-file-archive"></i>Zips</button>
-        <button id="select-all-btn"><i class="fas fa-check-square"></i>Select All</button>
-        <button id="clear-selection-btn"><i class="fas fa-times-circle"></i>Clear Selection</button>
-        <button id="zip-selected-btn"><i class="fas fa-file-zipper"></i>Zip Selected</button>
-        <button id="delete-selected-btn"><i class="fas fa-trash"></i>Delete Selected</button>
+        <div class="toolbar-group">
+            <div class="toolbar-group-title">Folders</div>
+            <button id="gallery-btn" class="active"><i class="fas fa-images"></i>Gallery</button>
+            <button id="uploads-btn"><i class="fas fa-upload"></i>Uploads</button>
+            <button><i class="fas fa-file-archive"></i>Zips</button>
+        </div>
+        <div class="toolbar-group">
+            <div class="toolbar-group-title">Selection</div>
+            <button id="select-all-btn"><i class="fas fa-check-square"></i>All</button>
+            <button id="clear-selection-btn"><i class="fas fa-times-circle"></i>Clear</button>
+        </div>
+        <div class="toolbar-group">
+            <div class="toolbar-group-title">Operations</div>
+            <button id="zip-selected-btn"><i class="fas fa-file-zipper"></i>Zip</button>
+            <button id="delete-selected-btn"><i class="fas fa-trash"></i>Delete</button>
+        </div>
     </div>
     <div id="main-content">
         <h1 id="main-heading">Gallery</h1>
