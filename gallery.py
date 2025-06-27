@@ -61,12 +61,28 @@ def index():
 def list_files():
     dir_name = request.args.get("dir", "webp")
     page = int(request.args.get("page", 0))
+    sort_by = request.args.get("sort_by", "date")  # Options: "filename", "date", "size"
+    sort_dir = request.args.get("sort_dir", "asc")  # Options: "asc", "desc"
     target_dir = webp_dir if dir_name == "webp" else upload_dir
     
     # Include all allowed extensions in the file list
-    all_files = sorted([f for f in os.listdir(target_dir) 
-                      if any(f.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)])
+    all_files = [f for f in os.listdir(target_dir) 
+                 if any(f.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)]
     
+    # Sorting logic
+    def sort_key(file):
+        file_path = os.path.join(target_dir, file)
+        if sort_by == "filename":
+            return file.lower()
+        elif sort_by == "size":
+            return os.path.getsize(file_path)
+        elif sort_by == "date":
+            return os.path.getmtime(file_path)
+        return os.path.getmtime(file_path)  # Default to date
+
+    reverse = sort_dir == "desc"
+    all_files = sorted(all_files, key=sort_key, reverse=reverse)
+
     start = page * FILES_PER_PAGE
     end = start + FILES_PER_PAGE
     files_metadata = []
