@@ -26,6 +26,21 @@
             z-index: 1000; /* Ensure it stays above other elements */
             padding: 0.5em 0.5em 0.25em 0; /* Add padding for better spacing */
         }
+        #sort-controls {
+            position: fixed;
+            top: 1.8em; /* Adjust positioning */
+            right: 1em; /* Ensure it doesn't spill off the screen */
+            display: flex;
+            align-items: center;
+            gap: 0.3em; /* Reduce gap between controls */
+            font-size: 0.5em; /* Make controls smaller */
+        }
+        #sort-controls select {
+            padding: 0.2em; /* Reduce padding */
+            border: 1px solid #ccc; /* Slightly lighter border */
+            border-radius: 3px; /* Smaller border radius */
+            font-size: 0.8em; /* Match font size */
+        }
         .gallery { 
             display: grid; 
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
@@ -258,7 +273,22 @@
         </div>
     </div>
     <div id="main-content">
-        <h1 id="main-heading">Gallery</h1>
+        <h1 id="main-heading">
+            Gallery
+            <div id="sort-controls">
+                <label for="sort-by">Sort By:</label>
+                <select id="sort-by">
+                    <option value="date" selected>Date</option>
+                    <option value="filename">Filename</option>
+                    <option value="size">Size</option>
+                </select>
+                <label for="sort-dir">Order:</label>
+                <select id="sort-dir">
+                    <option value="asc" selected>Ascending</option>
+                    <option value="desc">Descending</option>
+                </select>
+            </div>
+        </h1>
         <div id="drop-area">
             <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
             <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
@@ -321,6 +351,8 @@
         const modalProgress = document.getElementById("modal-progress");
         const downloadBtn = document.getElementById("download-btn");
         const lightboxInfo = document.getElementById("lightbox-info");
+        const sortBy = document.getElementById("sort-by");
+        const sortDir = document.getElementById("sort-dir");
 
         const modalSteps = {
             deleteConfirmation: document.getElementById("delete-confirmation"),
@@ -430,7 +462,7 @@
             loading = true;
             document.getElementById("loading").style.display = "block";
 
-            const response = await fetch(`/files?dir=${currentDir}&page=${page}`);
+            const response = await fetch(`/files?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
             const data = await response.json();
 
             if (data.files.length === 0) {
@@ -677,6 +709,16 @@
                 lightboxInfo.innerText = filename;
             }
         });
+
+        sortBy.addEventListener("change", () => reloadGallery());
+        sortDir.addEventListener("change", () => reloadGallery());
+
+        async function reloadGallery() {
+            page = 0;
+            done = false;
+            gallery.innerHTML = ""; // Clear current gallery
+            loadMore(); // Reload gallery with updated sort parameters
+        }
     </script>
 </body>
 </html>
