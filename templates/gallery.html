@@ -110,6 +110,7 @@
             display: none;
             justify-content: center;
             align-items: center;
+            flex-direction: column; /* Stack image and info vertically */
             z-index: 2000;
         }
         #lightbox img {
@@ -118,10 +119,7 @@
             border-radius: 8px;
         }
         #lightbox-info {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            margin-top: 10px; /* Add spacing beneath the image */
             color: #fff;
             font-size: 0.9em;
             text-align: center;
