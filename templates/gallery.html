@@ -747,8 +747,9 @@
                 const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "";
                 const frameRate = fileMetadata.frame_rate ? `${fileMetadata.frame_rate.toFixed(2)} fps` : "";
                 const fileSize = fileMetadata.size_bytes ? formatFileSize(fileMetadata.size_bytes) : "";
+                const lastModified = fileMetadata.last_modified ? new Date(fileMetadata.last_modified).toLocaleString() : "";
 
-                lightboxInfo.innerText = [filename, resolution, frames, duration, frameRate, fileSize]
+                lightboxInfo.innerText = [filename, resolution, frames, duration, frameRate, fileSize, lastModified]
                     .filter(Boolean) // Remove empty strings
                     .join(" | ");
             } else {
