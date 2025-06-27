@@ -8,6 +8,7 @@ import argparse
 import zipfile
 from webp import extract_webp_animation_metadata
 from images import get_image_metadata
+from datetime import datetime
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -89,6 +90,7 @@ def list_files():
 
     for file in all_files[start:end]:
         file_path = os.path.join(target_dir, file)
+        last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
         if file.lower().endswith(".webp"):
             metadata = extract_webp_animation_metadata(file_path)
             if isinstance(metadata, dict):  # Only include valid metadata
@@ -98,22 +100,24 @@ def list_files():
                     "resolution": f"{metadata['width']}x{metadata['height']}",
                     "frames": metadata["frame_count"],
                     "duration_seconds": metadata["total_duration_ms"] / 1000,
-                    "frame_rate": metadata["frame_rate"]
+                    "frame_rate": metadata["frame_rate"],
+                    "last_modified": last_modified
                 })
             else:
-                files_metadata.append({"name": file, "error": metadata})
+                files_metadata.append({"name": file, "error": metadata, "last_modified": last_modified})
         elif file.lower().endswith((".png", ".jpg", ".jpeg")):
             metadata = get_image_metadata(file_path)
             if isinstance(metadata, dict):  # Only include valid metadata
                 files_metadata.append({
                     "name": file,
                     "size_bytes": metadata["file_size"],
-                    "resolution": f"{metadata['width']}x{metadata['height']}"
+                    "resolution": f"{metadata['width']}x{metadata['height']}",
+                    "last_modified": last_modified
                 })
             else:
-                files_metadata.append({"name": file, "error": metadata})
+                files_metadata.append({"name": file, "error": metadata, "last_modified": last_modified})
         else:
-            files_metadata.append({"name": file})
+            files_metadata.append({"name": file, "last_modified": last_modified})
 
     return jsonify({"files": files_metadata})
 
