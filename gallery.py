@@ -6,6 +6,7 @@ import io
 from PIL import Image
 import argparse
 import zipfile
+from webp import extract_webp_animation_metadata
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -384,6 +385,8 @@ HTML_TEMPLATE = """
             return container;
         }
 
+        const fileMetadataCache = {}; // Object to store metadata indexed by directory and filename
+
         async function loadMore() {
             if (loading || done) return;
             loading = true;
@@ -400,11 +403,17 @@ HTML_TEMPLATE = """
             }
 
             data.files.forEach(file => {
-                const fileExt = file.split('.').pop().toLowerCase();
+                const fileName = file.name; // Extract filename from the response structure
+                const fileExt = fileName.split('.').pop().toLowerCase();
                 const isWebP = fileExt === 'webp';
-                const filePath = isWebP ? `/static-frame/${file}` : `/${currentDir}/${file}`;
-                const animatedPath = isWebP ? `/${currentDir}/${file}` : null;
-                const container = createImageElement(file, filePath, isWebP, animatedPath);
+                const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
+                const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
+
+                // Store metadata in the cache
+                const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
+                fileMetadataCache[cacheKey] = file;
+
+                const container = createImageElement(fileName, filePath, isWebP, animatedPath);
                 gallery.appendChild(container);
             });
 
@@ -621,8 +630,19 @@ HTML_TEMPLATE = """
 
         lightboxImg.addEventListener("load", () => {
             const filename = lightboxImg.src.split("/").pop();
-            const resolution = `${lightboxImg.naturalWidth} x ${lightboxImg.naturalHeight}`;
-            lightboxInfo.innerText = `${filename} (${resolution})`;
+            const cacheKey = `${currentDir}_${filename.replace(/\./g, '_')}`;
+            const fileMetadata = fileMetadataCache[cacheKey];
+
+            if (fileMetadata) {
+                const resolution = fileMetadata.resolution || "Unknown resolution";
+                const frames = fileMetadata.frames || "Unknown frames";
+                const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "Unknown duration";
+                const frameRate = fileMetadata.frame_rate ? `${fileMetadata.frame_rate.toFixed(2)} fps` : "Unknown frame rate";
+
+                lightboxInfo.innerText = `${filename} (${resolution}) | Frames: ${frames} | Duration: ${duration} | Frame Rate: ${frameRate}`;
+            } else {
+                lightboxInfo.innerText = `${filename} | Metadata not available`;
+            }
         });
     </script>
 </body>
@@ -645,7 +665,27 @@ def list_files():
     
     start = page * FILES_PER_PAGE
     end = start + FILES_PER_PAGE
-    return jsonify({"files": all_files[start:end]})
+    files_metadata = []
+
+    for file in all_files[start:end]:
+        file_path = os.path.join(target_dir, file)
+        if file.lower().endswith(".webp"):
+            metadata = extract_webp_animation_metadata(file_path)
+            if isinstance(metadata, dict):  # Only include valid metadata
+                files_metadata.append({
+                    "name": file,
+                    "size_bytes": metadata["file_size"],
+                    "resolution": f"{metadata['width']}x{metadata['height']}",
+                    "frames": metadata["frame_count"],
+                    "duration_seconds": metadata["total_duration_ms"] / 1000,
+                    "frame_rate": metadata["frame_rate"]
+                })
+            else:
+                files_metadata.append({"name": file, "error": metadata})
+        else:
+            files_metadata.append({"name": file})
+
+    return jsonify({"files": files_metadata})
 
 @app.route("/webp/<path:filename>")
 def webp_file(filename):
