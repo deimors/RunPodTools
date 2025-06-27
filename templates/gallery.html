@@ -378,6 +378,7 @@
                 const isWebP = fileExt === 'webp';
                 const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
                 const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
+                const fileSize = file.size;
 
                 // Store metadata in the cache
                 const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
@@ -587,13 +588,21 @@
             const cacheKey = `${currentDir}_${filename.replace(/\./g, '_')}`;
             const fileMetadata = fileMetadataCache[cacheKey];
 
+            const formatFileSize = (size) => {
+                if (size < 1024) return `${size} B`;
+                if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+                if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+                return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+            };
+
             if (fileMetadata) {
                 const resolution = fileMetadata.resolution ? `${fileMetadata.resolution}` : "";
                 const frames = fileMetadata.frames ? `Frames: ${fileMetadata.frames}` : "";
                 const duration = fileMetadata.duration_seconds ? `Duration: ${fileMetadata.duration_seconds.toFixed(2)}s` : "";
                 const frameRate = fileMetadata.frame_rate ? `Frame Rate: ${fileMetadata.frame_rate.toFixed(2)} fps` : "";
+                const fileSize = fileMetadata.size_bytes ? `Size: ${formatFileSize(fileMetadata.size_bytes)}` : "";
 
-                lightboxInfo.innerText = [filename, resolution, frames, duration, frameRate]
+                lightboxInfo.innerText = [filename, resolution, frames, duration, frameRate, fileSize]
                     .filter(Boolean) // Remove empty strings
                     .join(" | ");
             } else {
