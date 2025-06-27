@@ -7,6 +7,7 @@ from PIL import Image
 import argparse
 import zipfile
 from webp import extract_webp_animation_metadata
+from images import get_image_metadata
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -82,6 +83,16 @@ def list_files():
                     "frames": metadata["frame_count"],
                     "duration_seconds": metadata["total_duration_ms"] / 1000,
                     "frame_rate": metadata["frame_rate"]
+                })
+            else:
+                files_metadata.append({"name": file, "error": metadata})
+        elif file.lower().endswith((".png", ".jpg", ".jpeg")):
+            metadata = get_image_metadata(file_path)
+            if isinstance(metadata, dict):  # Only include valid metadata
+                files_metadata.append({
+                    "name": file,
+                    "size_bytes": metadata["file_size"],
+                    "resolution": f"{metadata['width']}x{metadata['height']}"
                 })
             else:
                 files_metadata.append({"name": file, "error": metadata})
