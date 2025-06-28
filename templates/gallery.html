@@ -297,11 +297,6 @@
         #archives-container {
             display: none; /* Hidden by default */
             margin-top: 2em;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 1em;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
         #archives-container h2 {
             margin: 0 0 1em 0;
@@ -310,11 +305,29 @@
             text-align: center;
         }
         #archives-container div {
-            padding: 0.5em 0;
             border-bottom: 1px solid #ddd;
         }
         #archives-container div:last-child {
             border-bottom: none;
+        }
+        .archive-box {
+            display: flex;
+            justify-content: space-between; /* Align content to left and right */
+            align-items: center;
+            margin: 1em 0;
+            padding: 1em;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            background-color: #fff;
+        }
+        .archive-box span:first-child {
+            font-weight: bold;
+            margin-right: auto; /* Push filename to the left */
+        }
+        .archive-box span:last-child {
+            color: #555;
+            text-align: right; /* Align size and date to the right */
         }
     </style>
 </head>
@@ -652,11 +665,8 @@
             updateActiveFolderButton("archives");
 
             data.files.forEach(archive => {
-                const archiveLine = document.createElement("div");
-                archiveLine.style.display = "flex";
-                archiveLine.style.justifyContent = "space-between";
-                archiveLine.style.borderBottom = "1px solid #ddd";
-                archiveLine.style.padding = "0.5em 0";
+                const archiveBox = document.createElement("div");
+                archiveBox.className = "archive-box";
 
                 const archiveName = document.createElement("span");
                 archiveName.textContent = archive.name;
@@ -664,9 +674,9 @@
                 const archiveDetails = document.createElement("span");
                 archiveDetails.textContent = `${formatFileSize(archive.size_bytes)} | ${new Date(archive.last_modified).toLocaleString()}`;
 
-                archiveLine.appendChild(archiveName);
-                archiveLine.appendChild(archiveDetails);
-                archivesContainer.appendChild(archiveLine);
+                archiveBox.appendChild(archiveName);
+                archiveBox.appendChild(archiveDetails);
+                archivesContainer.appendChild(archiveBox);
             });
         });
 
