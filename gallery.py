@@ -148,8 +148,8 @@ def upload_file():
         return jsonify({"message": f"File '{filename}' uploaded successfully"}), 200
     return jsonify({"message": "Invalid file type"}), 400
 
-@app.route("/zip", methods=["POST"])
-def zip_files():
+@app.route("/archive", methods=["POST"])
+def archive_files():
     """Compress selected files into a zip archive."""
     data = request.json
     filename = secure_filename(data.get("filename", "archive.zip"))

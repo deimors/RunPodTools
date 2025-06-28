@@ -720,7 +720,7 @@
             const selectedFiles = Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
                 .map(img => img.alt);
 
-            const response = await fetch("/zip", {
+            const response = await fetch("/archive", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ filename, files: selectedFiles, directory: currentDir }) // Include directory in request
