@@ -523,7 +523,7 @@
             loading = true;
             document.getElementById("loading").style.display = "block";
 
-            const response = await fetch(`/files?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
+            const response = await fetch(`/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
             const data = await response.json();
 
             if (data.files.length === 0) {

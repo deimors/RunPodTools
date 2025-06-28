@@ -58,8 +58,8 @@ def static_frame(filename):
 def index():
     return render_template("gallery.html")
 
-@app.route("/files")
-def list_files():
+@app.route("/images")
+def list_images():
     dir_name = request.args.get("dir", "webp")
     page = int(request.args.get("page", 0))
     sort_by = request.args.get("sort_by", "date")  # Options: "filename", "date", "size"
