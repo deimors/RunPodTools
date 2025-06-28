@@ -156,17 +156,30 @@ def upload_file():
 
 @app.route("/archives")
 def list_archives():
-    """List all .zip files in the archive directory."""
+    """List all .zip files in the archive directory, including their contents."""
     archive_files = [f for f in os.listdir(archive_dir) if f.lower().endswith(".zip")]
     files_metadata = []
 
     for file in archive_files:
         file_path = os.path.join(archive_dir, file)
         last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
+        zip_contents = []
+
+        try:
+            with zipfile.ZipFile(file_path, "r") as zipf:
+                for zip_info in zipf.infolist():
+                    zip_contents.append({
+                        "path": zip_info.filename,
+                        "size_bytes": zip_info.file_size
+                    })
+        except Exception as e:
+            print(f"Error reading zip file {file}: {e}")
+
         files_metadata.append({
             "name": file,
             "size_bytes": os.path.getsize(file_path),
-            "last_modified": last_modified
+            "last_modified": last_modified,
+            "contents": zip_contents
         })
 
     return jsonify({"files": files_metadata})
