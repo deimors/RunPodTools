@@ -294,6 +294,28 @@
             white-space: nowrap;
             z-index: 10; /* Ensure it's above the image */
         }
+        #archives-container {
+            display: none; /* Hidden by default */
+            margin-top: 2em;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1em;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        #archives-container h2 {
+            margin: 0 0 1em 0;
+            font-size: 1.5em;
+            color: #333;
+            text-align: center;
+        }
+        #archives-container div {
+            padding: 0.5em 0;
+            border-bottom: 1px solid #ddd;
+        }
+        #archives-container div:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -339,6 +361,11 @@
         </div>
         <div class="gallery" id="gallery"></div>
         <div id="loading">Loading...</div>
+
+        <div id="archives-container">
+            <h2>Archives</h2>
+            <!-- Archive items will be populated here by JavaScript -->
+        </div>
     </div>
     <div id="lightbox">
         <img id="lightbox-img" src="" alt="Lightbox Image">
@@ -380,6 +407,7 @@
         let lastSelectedIndex = -1; // Track the last selected image index
 
         const gallery = document.getElementById("gallery");
+        const archivesContainer = document.getElementById("archives-container");
         const loadedImages = new Map();
         const mainHeading = document.getElementById("main-heading");
         const galleryBtn = document.getElementById("gallery-btn");
@@ -575,6 +603,9 @@
             page = 0;
             done = false;
             gallery.innerHTML = ""; // Clear current gallery
+            archivesContainer.style.display = "none"; // Hide archives
+            gallery.style.display = "grid"; // Show gallery
+            dropArea.style.display = dir === "uploads" ? "block" : "none"; // Show drop area if uploads
             loadMore(); // Load new directory contents
 
             // Update heading and button states without losing sort controls
@@ -591,9 +622,6 @@
 
             galleryBtn.classList.toggle("active", dir === "webp");
             uploadsBtn.classList.toggle("active", dir === "uploads");
-
-            // Show or hide upload control
-            dropArea.classList.toggle("visible", dir === "uploads");
         }
 
         function formatFileSize(size) {
@@ -605,6 +633,33 @@
 
         galleryBtn.addEventListener("click", () => switchDirectory("webp"));
         uploadsBtn.addEventListener("click", () => switchDirectory("uploads"));
+        archivesBtn.addEventListener("click", async () => {
+            gallery.style.display = "none"; // Hide gallery
+            dropArea.style.display = "none"; // Hide upload control
+            archivesContainer.style.display = "block"; // Show archives container
+
+            const response = await fetch("/archives");
+            const data = await response.json();
+            archivesContainer.innerHTML = ""; // Clear previous content
+
+            data.files.forEach(archive => {
+                const archiveLine = document.createElement("div");
+                archiveLine.style.display = "flex";
+                archiveLine.style.justifyContent = "space-between";
+                archiveLine.style.borderBottom = "1px solid #ddd";
+                archiveLine.style.padding = "0.5em 0";
+
+                const archiveName = document.createElement("span");
+                archiveName.textContent = archive.name;
+
+                const archiveDetails = document.createElement("span");
+                archiveDetails.textContent = `${formatFileSize(archive.size_bytes)} | ${new Date(archive.last_modified).toLocaleString()}`;
+
+                archiveLine.appendChild(archiveName);
+                archiveLine.appendChild(archiveDetails);
+                archivesContainer.appendChild(archiveLine);
+            });
+        });
 
         // Close lightbox on click
         lightbox.addEventListener("click", () => {
