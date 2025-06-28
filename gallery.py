@@ -154,6 +154,23 @@ def upload_file():
         return jsonify({"message": f"File '{filename}' uploaded successfully"}), 200
     return jsonify({"message": "Invalid file type"}), 400
 
+@app.route("/archives")
+def list_archives():
+    """List all .zip files in the archive directory."""
+    archive_files = [f for f in os.listdir(archive_dir) if f.lower().endswith(".zip")]
+    files_metadata = []
+
+    for file in archive_files:
+        file_path = os.path.join(archive_dir, file)
+        last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
+        files_metadata.append({
+            "name": file,
+            "size_bytes": os.path.getsize(file_path),
+            "last_modified": last_modified
+        })
+
+    return jsonify({"files": files_metadata})
+
 @app.route("/archive", methods=["POST"])
 def archive_files():
     """Compress selected files into a zip archive."""
