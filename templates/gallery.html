@@ -599,6 +599,12 @@
             }
         }
 
+        function updateActiveFolderButton(dir) {
+            galleryBtn.classList.toggle("active", dir === "webp");
+            uploadsBtn.classList.toggle("active", dir === "uploads");
+            archivesBtn.classList.toggle("active", dir === "archives");
+        }
+
         function switchDirectory(dir) {
             currentDir = dir;
             page = 0;
@@ -621,10 +627,7 @@
             // Re-append the sort controls to the heading
             mainHeading.appendChild(sortControlsElement);
 
-            galleryBtn.classList.toggle("active", dir === "webp");
-            uploadsBtn.classList.toggle("active", dir === "uploads");
-
-            loadingText.style.display = dir === "archives" ? "none" : "block"; // Toggle loading text visibility
+            updateActiveFolderButton(dir); // Call the new method
         }
 
         function formatFileSize(size) {
@@ -645,6 +648,8 @@
             const response = await fetch("/archives");
             const data = await response.json();
             archivesContainer.innerHTML = ""; // Clear previous content
+
+            updateActiveFolderButton("archives");
 
             data.files.forEach(archive => {
                 const archiveLine = document.createElement("div");
