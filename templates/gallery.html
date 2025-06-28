@@ -91,6 +91,18 @@
             white-space: nowrap;
             z-index: 10;
         }
+        .gallery .image-container .duration {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 10; /* Ensure it's above the image */
+        }
         #loading { text-align: center; margin: 2em; font-size: 1.2em; color: #888; }
         #drop-area {
             border: 2px dashed #888;
@@ -422,7 +434,7 @@
             modal.style.display = "none";
         }
 
-        function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null) {
+        function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null) {
             const container = document.createElement("div");
             container.className = "image-container";
 
@@ -441,6 +453,13 @@
                 sortValueElement.className = "sort-value";
                 sortValueElement.textContent = sortValue;
                 imageWrapper.appendChild(sortValueElement);
+            }
+
+            if (isWebP && duration) {
+                const durationElement = document.createElement("div");
+                durationElement.className = "duration";
+                durationElement.textContent = `${duration.toFixed(2)}s`;
+                imageWrapper.appendChild(durationElement);
             }
 
             // Handle shift+click selection
@@ -520,6 +539,7 @@
                 const isWebP = fileExt === 'webp';
                 const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
                 const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
+                const fileDuration = isWebP ? file.duration_seconds : null;
 
                 // Store metadata in the cache
                 const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
@@ -534,7 +554,7 @@
                     sortValue = formatFileSize(file.size_bytes || 0);
                 }
 
-                const container = createImageElement(fileName, filePath, isWebP, animatedPath, sortValue);
+                const container = createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
                 gallery.appendChild(container);
             });
 
@@ -644,6 +664,7 @@
                     const isWebP = fileExt === 'webp';
                     const filePath = `/uploads/${file.name}`;
                     const animatedPath = isWebP ? `/uploads/${file.name}` : null;
+                    const duration = isWebP ? result.duration_seconds : null;
                     const container = createImageElement(file.name, filePath, isWebP, animatedPath);
                     gallery.appendChild(container);
                 }
