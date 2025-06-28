@@ -14,6 +14,7 @@ from datetime import datetime
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
 parser.add_argument("webp_dir", help="Path to the WebP folder")
 parser.add_argument("-u", "--upload_dir", help="Path to the alternate upload directory", default=None)
+parser.add_argument("-a", "--archive_dir", help="Path to the archive target directory", default=None)
 args = parser.parse_args()
 
 webp_dir = os.path.abspath(args.webp_dir)
@@ -24,6 +25,11 @@ if not os.path.isdir(webp_dir):
 upload_dir = os.path.abspath(args.upload_dir) if args.upload_dir else webp_dir
 if not os.path.isdir(upload_dir):
     print(f"Error: '{upload_dir}' is not a valid directory.")
+    sys.exit(1)
+
+archive_dir = os.path.abspath(args.archive_dir) if args.archive_dir else webp_dir
+if not os.path.isdir(archive_dir):
+    print(f"Error: '{archive_dir}' is not a valid directory.")
     sys.exit(1)
 
 # Constants
@@ -160,7 +166,7 @@ def archive_files():
         return jsonify({"success": False, "message": "No files selected"}), 400
 
     target_dir = webp_dir if directory == "webp" else upload_dir
-    zip_path = os.path.join(upload_dir, filename)
+    zip_path = os.path.join(archive_dir, filename)  # Use archive_dir instead of zip_dir
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
             for file in files:
@@ -175,7 +181,7 @@ def archive_files():
 @app.route("/download/<path:filename>")
 def download_file(filename):
     """Serve the zip file for download."""
-    zip_path = os.path.join(upload_dir, filename)
+    zip_path = os.path.join(archive_dir, filename)  # Use archive_dir instead of zip_dir
     if not os.path.isfile(zip_path):
         abort(404)
     return send_file(zip_path, as_attachment=True)
