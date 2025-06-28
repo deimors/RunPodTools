@@ -552,8 +552,18 @@
             gallery.innerHTML = ""; // Clear current gallery
             loadMore(); // Load new directory contents
 
-            // Update heading and button states
-            mainHeading.innerText = dir === "webp" ? "Gallery" : "Uploads Directory";
+            // Update heading and button states without losing sort controls
+            const sortControlsElement = document.getElementById("sort-controls");
+            const directoryName = dir === "webp" ? "Gallery" : "Uploads Directory";
+            
+            // Set the heading text but preserve the sort controls by wrapping in a span
+            mainHeading.innerHTML = `
+                <span>${directoryName}</span>
+            `;
+            
+            // Re-append the sort controls to the heading
+            mainHeading.appendChild(sortControlsElement);
+
             galleryBtn.classList.toggle("active", dir === "webp");
             uploadsBtn.classList.toggle("active", dir === "uploads");
 
