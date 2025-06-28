@@ -425,6 +425,7 @@
         const lightboxInfo = document.getElementById("lightbox-info");
         const sortBy = document.getElementById("sort-by");
         const sortDir = document.getElementById("sort-dir");
+        const loadingText = document.getElementById("loading"); // Extracted loading text element
 
         const modalSteps = {
             deleteConfirmation: document.getElementById("delete-confirmation"),
@@ -550,13 +551,13 @@
         async function loadMore() {
             if (loading || done) return;
             loading = true;
-            document.getElementById("loading").style.display = "block";
+            loadingText.style.display = "block";
 
             const response = await fetch(`/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
             const data = await response.json();
 
             if (data.files.length === 0) {
-                document.getElementById("loading").innerText = "No more files.";
+                loadingText.innerText = "No more files.";
                 done = true;
                 loading = false;
                 return;
@@ -622,6 +623,8 @@
 
             galleryBtn.classList.toggle("active", dir === "webp");
             uploadsBtn.classList.toggle("active", dir === "uploads");
+
+            loadingText.style.display = dir === "archives" ? "none" : "block"; // Toggle loading text visibility
         }
 
         function formatFileSize(size) {
@@ -637,6 +640,7 @@
             gallery.style.display = "none"; // Hide gallery
             dropArea.style.display = "none"; // Hide upload control
             archivesContainer.style.display = "block"; // Show archives container
+            loadingText.style.display = "none"; // Ensure loading text is hidden
 
             const response = await fetch("/archives");
             const data = await response.json();
