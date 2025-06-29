@@ -10,6 +10,9 @@
             margin-top: 70px; /* Adjust based on header height */
         }
         #main-heading {
+            display: flex; /* Ensure the heading and sort controls align properly */
+            align-items: center; /* Vertically align items */
+            justify-content: space-between; /* Space between heading and sort controls */
             font-size: 2em; /* Increase font size */
             font-weight: bold; /* Make text bold */
             color: #555; /* Darker color for better contrast */
@@ -25,6 +28,10 @@
             background-color: #f8f8f8; /* Adjust as needed */
             z-index: 1000; /* Ensure it stays above other elements */
             padding: 0.5em 0.5em 0.25em 0; /* Add padding for better spacing */
+        }
+        #main-heading h1 {
+            margin: 0; /* Remove default margin */
+            font-size: 1em; /* Increase font size */;
         }
         #sort-controls {
             position: fixed;
@@ -383,8 +390,10 @@
         </div>
     </div>
     <div id="main-content">
-        <h1 id="main-heading">
-            Gallery
+        <div id="main-heading">
+            <h1 id="main-heading-name">
+                Gallery
+            </h1>
             <div id="sort-controls">
                 <label for="sort-by">Sort By:</label>
                 <select id="sort-by">
@@ -398,7 +407,7 @@
                     <option value="desc">Descending</option>
                 </select>
             </div>
-        </h1>
+        </div>
         <div id="drop-area">
             <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
             <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
@@ -457,6 +466,7 @@
         const archivesContainer = document.getElementById("archives-container");
         const loadedImages = new Map();
         const mainHeading = document.getElementById("main-heading");
+        const mainHeadingName = document.getElementById("main-heading-name");
         const galleryBtn = document.getElementById("gallery-btn");
         const uploadsBtn = document.getElementById("uploads-btn");
         const archivesBtn = document.getElementById("archives-btn");
@@ -657,22 +667,16 @@
             page = 0;
             done = false;
             gallery.innerHTML = ""; // Clear current gallery
-            archivesContainer.style.display = "none"; // Hide archives
-            gallery.style.display = "grid"; // Show gallery
-            dropArea.style.display = dir === "uploads" ? "block" : "none"; // Show drop area if uploads
+            archivesContainer.style.display = "none"; // Show archives only for "Archives"
+            gallery.style.display = "grid"; // Show gallery for "Gallery" and "Uploads"
+            dropArea.style.display = dir === "uploads" ? "block" : "none"; // Show drop area only for "Uploads"
+
             loadMore(); // Load new directory contents
 
-            // Update heading and button states without losing sort controls
-            const sortControlsElement = document.getElementById("sort-controls");
-            const directoryName = dir === "webp" ? "Gallery" : "Uploads";
-            
-            // Set the heading text but preserve the sort controls by wrapping in a span
-            mainHeading.innerHTML = `<span>${directoryName}</span>`;
-            
-            // Re-append the sort controls to the heading
-            mainHeading.appendChild(sortControlsElement);
+            // Update heading text
+            mainHeadingName.innerHTML = dir === "webp" ? "Gallery" : "Uploads";
 
-            updateActiveFolderButton(dir); // Call the new method
+            updateActiveFolderButton(dir); // Update active folder button
         }
 
         function formatFileSize(size) {
@@ -696,7 +700,7 @@
 
             updateActiveFolderButton("archives");
 
-            mainHeading.innerHTML = `<span>Archives</span>`;
+            mainHeadingName.innerHTML = "Archives"; // Update heading name
 
             data.files.forEach(archive => {
                 const archiveBox = document.createElement("div");
@@ -850,7 +854,6 @@
                 zipInfo.innerText = `${selectedFiles.length} files selected`;
 
                 // Set default filename to current date
-                const zipFilenameInput = document.getElementById("zip-filename");
                 const currentDate = new Date().toISOString().split("T")[0]; // Format as YYYY-MM-DD
                 zipFilenameInput.value = `Gallery_${currentDate}.zip`;
 
