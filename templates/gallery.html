@@ -737,13 +737,15 @@
                 archiveDetails.textContent = `${formatFileSize(archive.size_bytes)} | ${new Date(archive.last_modified).toLocaleString()}`;
 
                 const downloadButton = document.createElement("button");
+                downloadButton.title = "Download";
                 downloadButton.innerHTML = `<i class="fas fa-download"></i>`;
                 downloadButton.addEventListener("click", () => {
                     window.location.href = `/download/${archive.name}`;
                 });
 
                 const extractButton = document.createElement("button");
-                extractButton.innerHTML = `<i class="fas fa-folder-open"></i>`;
+                extractButton.title = "Extract";
+                extractButton.innerHTML = `<i class="fas fa-file-zipper"></i>`;
                 extractButton.addEventListener("click", async () => {
                     const response = await fetch("/archive/extract", {
                         method: "POST",
@@ -758,9 +760,10 @@
                     }
                 });
 
-                const ellipsesButton = document.createElement("button");
-                ellipsesButton.innerHTML = `<i class="fas fa-ellipsis-h"></i>`;
-                ellipsesButton.addEventListener("click", (e) => {
+                const showContentsButton = document.createElement("button");
+                showContentsButton.title = "Contents";
+                showContentsButton.innerHTML = `<i class="fas fa-folder-open"></i>`;
+                showContentsButton.addEventListener("click", (e) => {
                     e.preventDefault(); // Prevent default behavior
                     const contentsDiv = archiveBox.querySelector(".contents");
                     contentsDiv.style.display = contentsDiv.style.display !== "block" ? "block" : "none";
@@ -786,7 +789,7 @@
                 detailsDiv.appendChild(archiveDetails);
                 detailsDiv.appendChild(downloadButton);
                 detailsDiv.appendChild(extractButton);
-                detailsDiv.appendChild(ellipsesButton);
+                detailsDiv.appendChild(showContentsButton);
 
                 archiveBox.appendChild(detailsDiv);
                 archiveBox.appendChild(contentsDiv);
