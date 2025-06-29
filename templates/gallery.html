@@ -442,6 +442,12 @@
                 <button id="zip-btn" style="width: 100%; padding: 0.5em; background: #0078d7; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-bottom: 0.5em;">Zip</button>
             </div>
 
+            <!-- Info Step -->
+            <div id="info-step" style="display: none;">
+                <h2 id="info-title"></h2>
+                <div id="info-details" style="font-size: 1.2em; margin: 1em;"></div>
+            </div>
+
             <!-- Zip Progress Step -->
             <div id="zip-progress-step" style="display: none;">
                 <h2 id="modal-title">Zipping Files...</h2>
@@ -488,7 +494,8 @@
             deleteConfirmation: document.getElementById("delete-confirmation"),
             zipFilenameStep: document.getElementById("zip-filename-step"),
             zipProgressStep: document.getElementById("zip-progress-step"),  
-            zipDownloadStep: document.getElementById("zip-download-step")
+            zipDownloadStep: document.getElementById("zip-download-step"),
+            infoStep: document.getElementById("info-step")
         };
 
         const observer = new IntersectionObserver((entries) => {
@@ -510,6 +517,16 @@
             rootMargin: "1000px 0px",  // Start loading before visible
             threshold: 0.01
         });
+
+        function showInfo(title, details) {
+            const infoTitle = document.getElementById("info-title");
+            const infoDetails = document.getElementById("info-details");
+
+            infoTitle.innerText = title;
+            infoDetails.innerHTML = details;
+
+            showModal("infoStep");
+        }
 
         function showModal(step) {
             modal.style.display = "block";
@@ -735,9 +752,9 @@
                     });
                     const result = await response.json();
                     if (response.ok) {
-                        alert(result.message);
+                        showInfo("Extraction Complete", result.message);
                     } else {
-                        alert(`Error: ${result.message}`);
+                        showInfo("Extraction Error", `Error: ${result.message}`);
                     }
                 });
 
@@ -895,7 +912,7 @@
             } else if (e.target.closest("#zip-selected-btn")) {
                 const selectedFiles = getSelectedImages();
                 if (selectedFiles.length === 0) {
-                    alert("No files selected.");
+                    showInfo("Can't Zip Selected", "No files selected.");
                     return;
                 }
 
@@ -911,7 +928,7 @@
             } else if (e.target.closest("#delete-selected-btn")) {
                 const selectedFiles = getSelectedImages();
                 if (selectedFiles.length === 0) {
-                    alert("No files selected.");
+                    showInfo("Can't Delete Selected", "No files selected.");
                     return;
                 }
 
@@ -930,9 +947,9 @@
         });
 
         zipBtn.addEventListener("click", async () => {
-            const filename = zipFilenameInput.value.trim(); // Use zipFilenameInput
+            const filename = zipFilenameInput.value.trim();
             if (!filename) {
-                alert("Please enter a filename.");
+                showInfo("Invalid Filename", "Please enter a filename.");
                 return;
             }
 
@@ -984,9 +1001,9 @@
                         gallery.removeChild(imgContainer);
                     }
                 });
-                alert(result.message);
+                showInfo("Deletion Complete", result.message);
             } else {
-                alert("Error deleting files: " + result.message);
+                showInfo("Deletion Error", `Error deleting files: ${result.message}`);
             }
         }
 
