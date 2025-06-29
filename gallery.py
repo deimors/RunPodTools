@@ -272,6 +272,42 @@ def delete_files():
         "errors": errors
     }), 200 if success else 500
 
+@app.route("/archive/extract", methods=["POST"])
+def extract_archive():
+    """Extract a .zip file into the webp directory."""
+    data = request.json
+    archive_name = data.get("filename")
+
+    if not archive_name:
+        return jsonify({"success": False, "message": "No archive filename provided"}), 400
+
+    archive_path = os.path.join(archive_dir, archive_name)
+    if not os.path.isfile(archive_path) or not archive_name.lower().endswith(".zip"):
+        return jsonify({"success": False, "message": "Invalid archive file"}), 400
+
+    try:
+        with zipfile.ZipFile(archive_path, "r") as zipf:
+            for zip_info in zipf.infolist():
+                original_name = zip_info.filename
+                target_path = os.path.join(webp_dir, original_name)
+
+                # Ensure unique filename by appending an integer if a conflict occurs
+                if os.path.exists(target_path):
+                    base_name, ext = os.path.splitext(original_name)
+                    counter = 1
+                    while os.path.exists(target_path):
+                        target_path = os.path.join(webp_dir, f"{base_name}_{counter}{ext}")
+                        counter += 1
+
+                # Extract the file
+                with zipf.open(zip_info) as source, open(target_path, "wb") as target:
+                    target.write(source.read())
+
+        return jsonify({"success": True, "message": f"Archive '{archive_name}' extracted successfully"}), 200
+    except Exception as e:
+        print(f"Error extracting archive {archive_name}: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
 if __name__ == "__main__":
     print(f"Serving from: {webp_dir}")
     print(f"Uploads will be saved to: {upload_dir}")

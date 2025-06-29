@@ -725,6 +725,22 @@
                     window.location.href = `/download/${archive.name}`;
                 });
 
+                const extractButton = document.createElement("button");
+                extractButton.innerHTML = `<i class="fas fa-folder-open"></i>`;
+                extractButton.addEventListener("click", async () => {
+                    const response = await fetch("/archive/extract", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ filename: archive.name })
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert(result.message);
+                    } else {
+                        alert(`Error: ${result.message}`);
+                    }
+                });
+
                 const ellipsesButton = document.createElement("button");
                 ellipsesButton.innerHTML = `<i class="fas fa-ellipsis-h"></i>`;
                 ellipsesButton.addEventListener("click", (e) => {
@@ -752,6 +768,7 @@
                 detailsDiv.appendChild(archiveName);
                 detailsDiv.appendChild(archiveDetails);
                 detailsDiv.appendChild(downloadButton);
+                detailsDiv.appendChild(extractButton);
                 detailsDiv.appendChild(ellipsesButton);
 
                 archiveBox.appendChild(detailsDiv);
