@@ -689,18 +689,22 @@
         galleryBtn.addEventListener("click", () => switchDirectory("webp"));
         uploadsBtn.addEventListener("click", () => switchDirectory("uploads"));
         archivesBtn.addEventListener("click", async () => {
+            currentDir = "archives"; // Switch to archives directory
             gallery.style.display = "none"; // Hide gallery
             dropArea.style.display = "none"; // Hide upload control
             archivesContainer.style.display = "block"; // Show archives container
             loadingText.style.display = "none"; // Ensure loading text is hidden
 
-            const response = await fetch("/archives");
+            const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
             const data = await response.json();
-            archivesContainer.innerHTML = ""; // Clear previous content
+            populateArchives(data);
 
             updateActiveFolderButton("archives");
-
             mainHeadingName.innerHTML = "Archives"; // Update heading name
+        });
+
+        function populateArchives(data) {
+            archivesContainer.innerHTML = ""; // Clear previous content
 
             data.files.forEach(archive => {
                 const archiveBox = document.createElement("div");
@@ -754,6 +758,35 @@
                 archiveBox.appendChild(contentsDiv);
                 archivesContainer.appendChild(archiveBox);
             });
+        }
+
+        async function reloadGallery() {
+            page = 0;
+            done = false;
+            gallery.innerHTML = "";
+            loadMore();
+        }
+
+        async function reloadArchives() {
+            const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
+            const data = await response.json();
+            populateArchives(data);
+        }
+
+        sortBy.addEventListener("change", () => {
+            if (currentDir === "archives") {
+                reloadArchives(); // Reload archives with updated sort parameters
+            } else {
+                reloadGallery(); // Reload gallery with updated sort parameters
+            }
+        });
+
+        sortDir.addEventListener("change", () => {
+            if (currentDir === "archives") {
+                reloadArchives(); // Reload archives with updated sort parameters
+            } else {
+                reloadGallery(); // Reload gallery with updated sort parameters
+            }
         });
 
         // Close lightbox on click
@@ -967,16 +1000,6 @@
                 lightboxInfo.innerText = filename;
             }
         });
-
-        sortBy.addEventListener("change", () => reloadGallery());
-        sortDir.addEventListener("change", () => reloadGallery());
-
-        async function reloadGallery() {
-            page = 0;
-            done = false;
-            gallery.innerHTML = ""; // Clear current gallery
-            loadMore(); // Reload gallery with updated sort parameters
-        }
     </script>
 </body>
 </html>

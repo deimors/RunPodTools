@@ -157,7 +157,25 @@ def upload_file():
 @app.route("/archives")
 def list_archives():
     """List all .zip files in the archive directory, including their contents."""
+    sort_by = request.args.get("sort_by", "date")  # Options: "filename", "date", "size"
+    sort_dir = request.args.get("sort_dir", "asc")  # Options: "asc", "desc"
+    
     archive_files = [f for f in os.listdir(archive_dir) if f.lower().endswith(".zip")]
+    
+    # Sorting logic
+    def sort_key(file):
+        file_path = os.path.join(archive_dir, file)
+        if sort_by == "filename":
+            return file.lower()
+        elif sort_by == "size":
+            return os.path.getsize(file_path)
+        elif sort_by == "date":
+            return os.path.getmtime(file_path)
+        return os.path.getmtime(file_path)  # Default to date
+
+    reverse = sort_dir == "desc"
+    archive_files = sorted(archive_files, key=sort_key, reverse=reverse)
+
     files_metadata = []
 
     for file in archive_files:

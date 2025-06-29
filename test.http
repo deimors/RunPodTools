@@ -1,1 +1,4 @@
 GET http://127.0.0.1:3137/images?sort_by=filename&sort_dir=asc
+
+###
+GET http://127.0.0.1:3137/archives?sort_by=filename&sort_dir=asc
