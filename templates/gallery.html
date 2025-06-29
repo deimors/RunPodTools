@@ -304,16 +304,13 @@
             color: #333;
             text-align: center;
         }
-        #archives-container div {
-            border-bottom: 1px solid #ddd;
-        }
         #archives-container div:last-child {
             border-bottom: none;
         }
         .archive-box {
             display: flex;
-            justify-content: space-between; /* Align content to left and right */
-            align-items: center;
+            flex-direction: column; /* Stack contents vertically */
+            align-items: flex-start; /* Align items to the left */
             margin: 1em 0;
             padding: 1em;
             border: 1px solid #ddd;
@@ -321,11 +318,17 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             background-color: #fff;
         }
-        .archive-box span:first-child {
+        .archive-box .details {
+            display: flex;
+            justify-content: space-between; /* Align filename and details */
+            width: 100%;
+            align-items: center; /* Ensure buttons align properly */
+        }
+        .archive-box .details span:first-child {
             font-weight: bold;
             margin-right: auto; /* Push filename to the left */
         }
-        .archive-box span:last-child {
+        .archive-box .details span:last-child {
             color: #555;
             text-align: right; /* Align size and date to the right */
         }
@@ -344,6 +347,19 @@
         }
         .archive-box button:hover {
             background: #005fa3;
+        }
+        .archive-box .contents {
+            display: none; /* Hidden by default */
+            margin-top: 0.5em;
+            width: 100%;
+        }
+        .archive-box .contents div {
+            display: flex;
+            justify-content: space-between; /* Align name to the left and size to the right */
+            padding: 0.5em;
+        }
+        .archive-box .contents div:nth-child(odd) {
+            background-color: #f8f8f8; /* Slightly shaded for alternate lines */
         }
     </style>
 </head>
@@ -684,6 +700,9 @@
                 const archiveBox = document.createElement("div");
                 archiveBox.className = "archive-box";
 
+                const detailsDiv = document.createElement("div");
+                detailsDiv.className = "details";
+
                 const archiveName = document.createElement("span");
                 archiveName.textContent = archive.name;
 
@@ -696,9 +715,37 @@
                     window.location.href = `/download/${archive.name}`;
                 });
 
-                archiveBox.appendChild(archiveName);
-                archiveBox.appendChild(archiveDetails);
-                archiveBox.appendChild(downloadButton);
+                const ellipsesButton = document.createElement("button");
+                ellipsesButton.innerHTML = `<i class="fas fa-ellipsis-h"></i>`;
+                ellipsesButton.addEventListener("click", (e) => {
+                    e.preventDefault(); // Prevent default behavior
+                    const contentsDiv = archiveBox.querySelector(".contents");
+                    contentsDiv.style.display = contentsDiv.style.display !== "block" ? "block" : "none";
+                });
+
+                const contentsDiv = document.createElement("div");
+                contentsDiv.className = "contents";
+                archive.contents.forEach(content => {
+                    const contentLine = document.createElement("div");
+
+                    const contentName = document.createElement("span");
+                    contentName.textContent = content.path;
+
+                    const contentSize = document.createElement("span");
+                    contentSize.textContent = formatFileSize(content.size_bytes);
+
+                    contentLine.appendChild(contentName);
+                    contentLine.appendChild(contentSize);
+                    contentsDiv.appendChild(contentLine);
+                });
+
+                detailsDiv.appendChild(archiveName);
+                detailsDiv.appendChild(archiveDetails);
+                detailsDiv.appendChild(downloadButton);
+                detailsDiv.appendChild(ellipsesButton);
+
+                archiveBox.appendChild(detailsDiv);
+                archiveBox.appendChild(contentsDiv);
                 archivesContainer.appendChild(archiveBox);
             });
         });
