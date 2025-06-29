@@ -197,6 +197,11 @@ def archive_files():
 
     target_dir = webp_dir if directory == "webp" else upload_dir
     zip_path = os.path.join(archive_dir, filename)  # Use archive_dir instead of zip_dir
+
+    # Check if the target file already exists
+    if os.path.exists(zip_path):
+        return jsonify({"success": False, "message": f"File '{filename}' already exists"}), 400
+
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
             for file in files:

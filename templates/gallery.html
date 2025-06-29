@@ -894,17 +894,22 @@
                 body: JSON.stringify({ filename, files: selectedFiles, directory: currentDir }) // Include directory in request
             });
 
-            const result = await response.json();
-            if (result.success) {
-                showModal("zipDownloadStep");
+            const modalProgress = document.getElementById("modal-progress");
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    showModal("zipDownloadStep");
 
-                downloadBtn.onclick = () => {
-                    window.location.href = `/download/${result.filename}`;
-                    hideModal();
-                };
+                    downloadBtn.onclick = () => {
+                        window.location.href = `/download/${result.filename}`;
+                        hideModal();
+                    };
+                } else {
+                    modalProgress.innerText = `Error: ${result.message}`;
+                }
             } else {
-                modalTitle.innerText = "Error Zipping Files"; // Use modalTitle
-                modalProgress.style.display = "none";
+                const error = await response.json();
+                modalProgress.innerText = `Error ${response.status}: ${error.message || "An error occurred"}`;
             }
         });
 
