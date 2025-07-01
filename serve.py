@@ -9,7 +9,7 @@ app = Flask(__name__)
 parser = argparse.ArgumentParser(description="Serve files from a specified directory.")
 parser.add_argument('--directory', '-d', default='.', help="Directory to serve files from")
 # Add a port argument to argparse
-parser.add_argument('--port', '-p', type=int, default=3137, help="Port to run the server on")
+parser.add_argument('--port', '-p', type=int, default=3138, help="Port to run the server on")
 args = parser.parse_args()
 files_directory = args.directory
 port = args.port
