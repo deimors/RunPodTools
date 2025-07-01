@@ -21,6 +21,11 @@ response = requests.get(f"{server_url}/")
 response.raise_for_status()
 files = response.json().get('files', [])
 
+# List the files to be retrieved
+print("Files to be downloaded:")
+for file in files:
+    print(f" - {file['name']} ({file['size']} bytes)")
+
 # Download each file
 for file in files:
     filename = file['name']
@@ -28,12 +33,15 @@ for file in files:
     download_url = f"{server_url}/{filename}"
     save_path = os.path.join(save_directory, filename)
 
-    with requests.get(download_url, stream=True) as r:
-        r.raise_for_status()
-        with open(save_path, 'wb') as f:
-            with tqdm(
-                total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=filename
-            ) as progress:
+    # Use tqdm to display the starting download message
+    with tqdm(
+        total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=f"Starting download: {filename}"
+    ) as progress:
+        with requests.get(download_url, stream=True) as r:
+            r.raise_for_status()
+            with open(save_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    progress.update(len(chunk))
                     f.write(chunk)
                     progress.update(len(chunk))
