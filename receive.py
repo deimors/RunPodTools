@@ -32,6 +32,16 @@ for file in files:
     download_url = f"{server_url}/{filename}"
     save_path = os.path.join(save_directory, filename)
 
+    # Check if the file already exists
+    if os.path.isfile(save_path):
+        existing_size = os.path.getsize(save_path)
+        if existing_size == file_size:
+            print(f"Skipping download: {filename} (already exists with the same size)")
+            continue
+        else:
+            size_difference = file_size - existing_size
+            print(f"Replacing file: {filename} (size difference: {size_difference} bytes)")
+
     # Use tqdm to display the starting download message
     with tqdm(
         total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=f"Starting download: {filename}"
@@ -40,7 +50,5 @@ for file in files:
             r.raise_for_status()
             with open(save_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-                    progress.update(len(chunk))
                     f.write(chunk)
                     progress.update(len(chunk))
