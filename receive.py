@@ -5,12 +5,11 @@ from tqdm import tqdm
 
 # Use argparse to handle command-line arguments
 parser = argparse.ArgumentParser(description="Download files from a specified server.")
-parser.add_argument('--host', '-H', default='http://localhost', help="Host of the server")
-parser.add_argument('--port', '-p', type=int, default=3138, help="Port of the server")
+parser.add_argument('--host', '-H', default='http://localhost:3138', help="Host of the server")
 parser.add_argument('--directory', '-d', default='.', help="Directory to save downloaded files")
 args = parser.parse_args()
 
-server_url = f"{args.host}:{args.port}"
+server_url = args.host
 save_directory = args.directory
 
 # Ensure the save directory exists
