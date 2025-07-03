@@ -402,8 +402,8 @@
             position: absolute;
             bottom: 8px;
             right: 8px;
-            width: 24px;
-            height: 24px;
+            width: 30px;
+            height: 30px;
             border: 3px solid rgba(255, 255, 255, 0.7);
             border-top: 3px solid #0078d7;
             border-radius: 50%;
@@ -602,7 +602,7 @@
         function handleMouseEnter(img, loadingIndicator) {
             img.dataset.hovering = "true"; // Mark as hovering
             loadingIndicator.style.display = "block"; // Show loading indicator
-            img.src = img.dataset.animated; // Play animation
+            img.src = img.dataset.animated; // Start downloading animation
         }
 
         function handleMouseLeave(img, loadingIndicator) {
@@ -612,7 +612,7 @@
         }
 
         const debouncedMouseEnter = debounce((img, loadingIndicator) => {
-            if (img.dataset.hovering === "true") { // Only play animation if still hovering
+            if (img.dataset.hovering === "true") { // Only show animation if still hovering
                 loadingIndicator.style.display = "block"; // Show loading indicator
                 img.src = img.dataset.animated;
             }
