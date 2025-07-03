@@ -49,15 +49,18 @@ def allowed_file(filename):
 
 @app.route("/static-frame/<path:filename>")
 def static_frame(filename):
-    """Serve the first frame of an animated webp as a static image"""
+    """Serve a specific frame of an animated webp as a static image"""
+    frame_type = request.args.get("frame", "first")  # Default to the first frame
     full_path = os.path.join(webp_dir, filename)
     if not os.path.isfile(full_path) or not filename.lower().endswith('.webp'):
         abort(404)
     
     try:
         with Image.open(full_path) as img:
-            # Get the first frame only
-            img.seek(0)
+            if frame_type == "last":
+                img.seek(img.n_frames - 1)  # Get the last frame
+            else:
+                img.seek(0)  # Default to the first frame
             output = io.BytesIO()
             img.save(output, format='WEBP')
             output.seek(0)
