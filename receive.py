@@ -14,15 +14,23 @@ args = parser.parse_args()
 server_url = args.host
 save_directories = [os.path.abspath(d) for d in args.directory]
 
-# Ensure all save directories exist
-for save_directory in save_directories:
-    os.makedirs(save_directory, exist_ok=True)
-
 # Validate that all specified save directories exist
+create_all = None
 for save_directory in save_directories:
     if not os.path.isdir(save_directory):
-        print(f"Error: '{save_directory}' is not a valid directory.")
-        sys.exit(1)
+        if create_all is None:
+            choice = input(f"Directory '{save_directory}' does not exist. Create it? (y/n/all): ").strip().lower()
+            if choice == "all":
+                create_all = True
+            elif choice == "n":
+                print(f"Error: '{save_directory}' is not a valid directory.")
+                sys.exit(1)
+            elif choice != "y":
+                print("Invalid choice. Exiting.")
+                sys.exit(1)
+        if create_all or choice == "y":
+            os.makedirs(save_directory)
+            print(f"Created directory: {save_directory}")
 
 # Get the list of files and validate the number of directories
 response = requests.get(f"{server_url}/")
