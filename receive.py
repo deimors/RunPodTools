@@ -2,23 +2,31 @@ import argparse
 import requests
 import os
 from tqdm import tqdm
+import sys
 
 # Use argparse to handle command-line arguments
 parser = argparse.ArgumentParser(description="Download files from a specified server.")
 parser.add_argument('--host', '-H', default='http://localhost:3138', help="Host of the server")
-parser.add_argument('--directory', '-d', default='.', help="Directory to save downloaded files")
+parser.add_argument('--directory', '-d', action='append', required=True, help="Directories to save downloaded files")
 args = parser.parse_args()
 
 server_url = args.host
-save_directory = args.directory
+save_directories = [os.path.abspath(d) for d in args.directory]
 
-# Ensure the save directory exists
-os.makedirs(save_directory, exist_ok=True)
+# Ensure all save directories exist
+for save_directory in save_directories:
+    os.makedirs(save_directory, exist_ok=True)
 
-# Get the list of files from the server
+# Get the list of files and validate the number of directories
 response = requests.get(f"{server_url}/")
 response.raise_for_status()
-files = response.json().get('files', [])
+response_data = response.json()
+files = response_data.get('files', [])
+directories_count = len(response_data.get('directories', []))
+
+if len(save_directories) != directories_count:
+    print(f"Error: Number of save directories ({len(save_directories)}) does not match the number of directories ({directories_count}) returned by the server.")
+    sys.exit(1)
 
 # List the files to be retrieved
 print("Files to be downloaded:")
@@ -29,8 +37,9 @@ for file in files:
 for file in files:
     filename = file['name']
     file_size = file['size']
-    download_url = f"{server_url}/{filename}"
-    save_path = os.path.join(save_directory, filename)
+    directory_index = file['directory_index']
+    download_url = f"{server_url}/{directory_index}/{filename}"
+    save_path = os.path.join(save_directories[directory_index], filename)
 
     # Check if the file already exists
     if os.path.isfile(save_path):
