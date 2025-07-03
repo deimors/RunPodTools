@@ -572,6 +572,30 @@
             modal.style.display = "none";
         }
 
+        function debounce(func, delay) {
+            let timeoutId;
+            return (...args) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => func(...args), delay);
+            };
+        }
+
+        function handleMouseEnter(img) {
+            img.dataset.hovering = "true"; // Mark as hovering
+            img.src = img.dataset.animated; // Play animation
+        }
+
+        function handleMouseLeave(img) {
+            img.dataset.hovering = "false"; // Mark as not hovering
+            img.src = img.dataset.static; // Return to static frame
+        }
+
+        const debouncedMouseEnter = debounce((img) => {
+            if (img.dataset.hovering === "true") { // Only play animation if still hovering
+                img.src = img.dataset.animated;
+            }
+        }, 500);
+
         function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null) {
             const container = document.createElement("div");
             container.className = "image-container";
@@ -585,7 +609,7 @@
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.className = "checkbox";
-            
+
             if (sortValue) {
                 const sortValueElement = document.createElement("div");
                 sortValueElement.className = "sort-value";
@@ -600,33 +624,6 @@
                 imageWrapper.appendChild(durationElement);
             }
 
-            // Handle shift+click selection
-            checkbox.addEventListener("click", (e) => {
-                if (e.shiftKey && lastSelectedIndex >= 0) {
-                    const allContainers = Array.from(document.querySelectorAll(".gallery .image-container"));
-                    const currentIndex = allContainers.indexOf(container);
-                    
-                    // Select all images between last selected and current
-                    const start = Math.min(lastSelectedIndex, currentIndex);
-                    const end = Math.max(lastSelectedIndex, currentIndex);
-                    
-                    for (let i = start; i <= end; i++) {
-                        const targetContainer = allContainers[i];
-                        const targetCheckbox = targetContainer.querySelector(".checkbox");
-                        targetCheckbox.checked = true;
-                        targetContainer.classList.add("selected");
-                    }
-                }
-                
-                // Update last selected index
-                const allContainers = Array.from(document.querySelectorAll(".gallery .image-container"));
-                lastSelectedIndex = allContainers.indexOf(container);
-            });
-            
-            checkbox.addEventListener("change", () => {
-                container.classList.toggle("selected", checkbox.checked);
-            });
-
             img.src = filePath;
 
             if (isWebP && animatedPath) {
@@ -634,12 +631,10 @@
                 img.dataset.animated = animatedPath;
 
                 container.addEventListener("mouseenter", () => {
-                    img.src = img.dataset.animated; // Play animation on hover
+                    img.dataset.hovering = "true"; // Mark as hovering
+                    debouncedMouseEnter(img);
                 });
-
-                container.addEventListener("mouseleave", () => {
-                    img.src = img.dataset.static; // Return to static frame when not hovering
-                });
+                container.addEventListener("mouseleave", () => handleMouseLeave(img));
             }
 
             img.addEventListener("click", (e) => {
