@@ -16,6 +16,17 @@ args = parser.parse_args()
 files_directories = [os.path.abspath(d) for d in args.directory] if args.directory else [os.path.abspath('.')]
 port = args.port
 
+print(f"Serving files on port {port} from directories:")
+for index, directory in enumerate(files_directories):
+    print(f"  {index}: {directory}")
+print()
+
+# Validate that all specified directories exist
+for directory in files_directories:
+    if not os.path.isdir(directory):
+        print(f"Error: '{directory}' is not a valid directory.")
+        exit(1)
+
 @app.route('/<int:directory_index>/<path:filename>')
 def get_file(directory_index, filename):
     # URL-decode the filename

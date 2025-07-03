@@ -32,6 +32,12 @@ if not os.path.isdir(archive_dir):
     print(f"Error: '{archive_dir}' is not a valid directory.")
     sys.exit(1)
 
+# Validate that all specified directories exist
+for directory in [webp_dir, upload_dir, archive_dir]:
+    if not os.path.isdir(directory):
+        print(f"Error: '{directory}' is not a valid directory.")
+        sys.exit(1)
+
 # Constants
 FILES_PER_PAGE = 12
 ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png'}

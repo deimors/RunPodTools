@@ -18,6 +18,12 @@ save_directories = [os.path.abspath(d) for d in args.directory]
 for save_directory in save_directories:
     os.makedirs(save_directory, exist_ok=True)
 
+# Validate that all specified save directories exist
+for save_directory in save_directories:
+    if not os.path.isdir(save_directory):
+        print(f"Error: '{save_directory}' is not a valid directory.")
+        sys.exit(1)
+
 # Get the list of files and validate the number of directories
 response = requests.get(f"{server_url}/")
 response.raise_for_status()
