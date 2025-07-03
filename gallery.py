@@ -51,6 +51,9 @@ def allowed_file(filename):
 def static_frame(filename):
     """Serve a specific frame of an animated webp as a static image"""
     frame_type = request.args.get("frame", "first")  # Default to the first frame
+    # Replace .png extension with .webp for existence check
+    if filename.endswith('.png'):
+        filename = filename.replace('.png', '.webp')
     full_path = os.path.join(webp_dir, filename)
     if not os.path.isfile(full_path) or not filename.lower().endswith('.webp'):
         abort(404)
@@ -62,9 +65,9 @@ def static_frame(filename):
             else:
                 img.seek(0)  # Default to the first frame
             output = io.BytesIO()
-            img.save(output, format='WEBP')
+            img.save(output, format='PNG')  # Save as PNG
             output.seek(0)
-            return Response(output.getvalue(), mimetype='image/webp')
+            return Response(output.getvalue(), mimetype='image/png')  # Serve as PNG
     except Exception as e:
         print(f"Error processing {filename}: {e}")
         return send_from_directory(webp_dir, filename)

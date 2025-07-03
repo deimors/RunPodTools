@@ -1068,7 +1068,7 @@
             playAnimationBtn.classList.remove("active");
             showFirstFrameBtn.classList.add("active");
             showLastFrameBtn.classList.remove("active");
-            lightboxImg.src = lightboxImg.dataset.static || lightboxImg.src; // Show first frame
+            lightboxImg.src = lightboxImg.dataset.static.replace('.webp', '.png') || lightboxImg.src; // Show first frame as PNG
         });
 
         showLastFrameBtn.addEventListener("click", (e) => {
@@ -1077,20 +1077,22 @@
             showFirstFrameBtn.classList.remove("active");
             showLastFrameBtn.classList.add("active");
             
-            // Extract the actual filename from the src URL instead of using alt
             const srcPath = lightboxImg.src;
             const filename = srcPath.split('/').pop().split('?')[0]; // Get filename without query params
-            lightboxImg.src = `/static-frame/${filename}?frame=last`; // Show last frame
+            lightboxImg.src = `/static-frame/${filename.replace('.webp', '.png')}?frame=last`; // Show last frame as PNG
         });
 
         lightboxImg.addEventListener("load", () => {
-            const filename = lightboxImg.src.split("/").pop();
-            const cacheKey = `${currentDir}_${filename.replace(/\./g, '_')}`;
+            const filename = lightboxImg.src.split("/").pop().split('?')[0]; // Remove query parameters
+            const originalFilename = filename.endsWith('.png') ? filename.replace('.png', '.webp') : filename;
+            const cacheKey = `${currentDir}_${originalFilename.replace(/\./g, '_')}`;
             const fileMetadata = fileMetadataCache[cacheKey];
 
             if (fileMetadata) {
-                lightboxImg.dataset.static = `/static-frame/${filename}?frame=first`;
-                lightboxImg.dataset.animated = `/${currentDir}/${filename}`;
+                // Set the dataset values for the lightbox image
+                lightboxImg.dataset.static = `/static-frame/${originalFilename}?frame=first`;
+                lightboxImg.dataset.animated = `/${currentDir}/${originalFilename}`;
+                
                 const resolution = fileMetadata.resolution ? `${fileMetadata.resolution}` : "";
                 const frames = fileMetadata.frames ? `${fileMetadata.frames} frames` : "";
                 const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "";
@@ -1098,11 +1100,11 @@
                 const fileSize = fileMetadata.size_bytes ? formatFileSize(fileMetadata.size_bytes) : "";
                 const lastModified = fileMetadata.last_modified ? new Date(fileMetadata.last_modified).toLocaleString() : "";
 
-                lightboxInfo.innerText = [filename, resolution, frames, duration, frameRate, fileSize, lastModified]
+                lightboxInfo.innerText = [originalFilename, resolution, frames, duration, frameRate, fileSize, lastModified]
                     .filter(Boolean) // Remove empty strings
                     .join(" | ");
 
-                // Show controls only if the file is a WebP animation with more than 0 frames
+                // Show controls only if the file is a WebP animation with frames
                 const lightboxControls = document.getElementById("lightbox-controls");
                 if (fileMetadata.frames && fileMetadata.frames > 0) {
                     lightboxControls.style.display = "flex";
