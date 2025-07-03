@@ -397,6 +397,25 @@
         #lightbox-controls button.active {
             background: #005fa3;
         }
+
+        .gallery .loading-indicator {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.7);
+            border-top: 3px solid #0078d7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+            z-index: 20; /* Ensure it's above other elements */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -580,18 +599,21 @@
             };
         }
 
-        function handleMouseEnter(img) {
+        function handleMouseEnter(img, loadingIndicator) {
             img.dataset.hovering = "true"; // Mark as hovering
+            loadingIndicator.style.display = "block"; // Show loading indicator
             img.src = img.dataset.animated; // Play animation
         }
 
-        function handleMouseLeave(img) {
+        function handleMouseLeave(img, loadingIndicator) {
             img.dataset.hovering = "false"; // Mark as not hovering
+            loadingIndicator.style.display = "none"; // Hide loading indicator
             img.src = img.dataset.static; // Return to static frame
         }
 
-        const debouncedMouseEnter = debounce((img) => {
+        const debouncedMouseEnter = debounce((img, loadingIndicator) => {
             if (img.dataset.hovering === "true") { // Only play animation if still hovering
+                loadingIndicator.style.display = "block"; // Show loading indicator
                 img.src = img.dataset.animated;
             }
         }, 500);
@@ -609,6 +631,9 @@
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.className = "checkbox";
+
+            const loadingIndicator = document.createElement("div");
+            loadingIndicator.className = "loading-indicator";
 
             if (sortValue) {
                 const sortValueElement = document.createElement("div");
@@ -632,10 +657,14 @@
 
                 container.addEventListener("mouseenter", () => {
                     img.dataset.hovering = "true"; // Mark as hovering
-                    debouncedMouseEnter(img);
+                    debouncedMouseEnter(img, loadingIndicator);
                 });
-                container.addEventListener("mouseleave", () => handleMouseLeave(img));
+                container.addEventListener("mouseleave", () => handleMouseLeave(img, loadingIndicator));
             }
+
+            img.addEventListener("load", () => {
+                loadingIndicator.style.display = "none"; // Hide loading indicator once loaded
+            });
 
             img.addEventListener("click", (e) => {
                 if (e.target.className === "checkbox") return;
@@ -644,6 +673,7 @@
             });
 
             imageWrapper.appendChild(img);
+            imageWrapper.appendChild(loadingIndicator);
             container.appendChild(imageWrapper);
             container.appendChild(checkbox);
             return container;
