@@ -3,6 +3,7 @@ import requests
 import os
 from tqdm import tqdm
 import sys
+import urllib.parse
 
 # Use argparse to handle command-line arguments
 parser = argparse.ArgumentParser(description="Download files from a specified server.")
@@ -35,25 +36,29 @@ for file in files:
 
 # Download each file
 for file in files:
-    filename = file['name']
+    filename = file['name']  # URL-encoded relative path of the file
     file_size = file['size']
     directory_index = file['directory_index']
     download_url = f"{server_url}/{directory_index}/{filename}"
-    save_path = os.path.join(save_directories[directory_index], filename)
+    decoded_filename = urllib.parse.unquote(filename)  # URL-decode the filename
+    save_path = os.path.join(save_directories[directory_index], decoded_filename)
+
+    # Ensure subdirectories exist
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     # Check if the file already exists
     if os.path.isfile(save_path):
         existing_size = os.path.getsize(save_path)
         if existing_size == file_size:
-            print(f"Skipping download: {filename} (already exists with the same size)")
+            print(f"Skipping download: {decoded_filename} (already exists with the same size)")
             continue
         else:
             size_difference = file_size - existing_size
-            print(f"Replacing file: {filename} (size difference: {size_difference} bytes)")
+            print(f"Replacing file: {decoded_filename} (size difference: {size_difference} bytes)")
 
     # Use tqdm to display the starting download message
     with tqdm(
-        total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=f"Starting download: {filename}"
+        total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=f"Starting download: {decoded_filename}"
     ) as progress:
         with requests.get(download_url, stream=True) as r:
             r.raise_for_status()
