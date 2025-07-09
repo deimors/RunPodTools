@@ -635,6 +635,26 @@
             const loadingIndicator = document.createElement("div");
             loadingIndicator.className = "loading-indicator";
 
+            // Handle shift-click for range selection
+            checkbox.addEventListener("click", (e) => {
+                if (e.shiftKey && lastSelectedIndex !== -1) {
+                    const checkboxes = Array.from(document.querySelectorAll(".gallery .checkbox"));
+                    const currentIndex = checkboxes.indexOf(checkbox);
+                    const [start, end] = [lastSelectedIndex, currentIndex].sort((a, b) => a - b);
+
+                    for (let i = start; i <= end; i++) {
+                        checkboxes[i].checked = checkbox.checked;
+                        checkboxes[i].closest(".image-container").classList.toggle("selected", checkbox.checked);
+                    }
+                }
+                lastSelectedIndex = Array.from(document.querySelectorAll(".gallery .checkbox")).indexOf(checkbox);
+            });
+
+            // Ensure the container toggles the selected class when the checkbox is changed
+            checkbox.addEventListener("change", () => {
+                container.classList.toggle("selected", checkbox.checked);
+            });
+
             if (sortValue) {
                 const sortValueElement = document.createElement("div");
                 sortValueElement.className = "sort-value";
