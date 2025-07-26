@@ -435,6 +435,7 @@
             <div class="toolbar-group-title">Actions</div>
             <button id="zip-selected-btn" data-label="Zip Selected"><i class="fas fa-file-zipper"></i></button>
             <button id="delete-selected-btn" data-label="Delete Selected"><i class="fas fa-trash"></i></button>
+            <button id="reload-btn" data-label="Reload"><i class="fas fa-sync-alt"></i></button>
         </div>
     </div>
     <div id="main-content">
@@ -977,7 +978,10 @@
         }
 
         document.getElementById("toolbar").addEventListener("click", (e) => {
-            if (e.target.closest("#select-all-btn")) {
+            if (e.target.closest("#reload-btn")) {
+                // Reload static frames by clearing cache and reloading images
+                reloadStaticFrames();
+            } else if (e.target.closest("#select-all-btn")) {
                 // Select all images
                 document.querySelectorAll(".gallery .image-container").forEach(container => {
                     const checkbox = container.querySelector(".checkbox");
@@ -1027,6 +1031,29 @@
                 };
             }
         });
+
+        function reloadStaticFrames() {
+            // Get all currently visible images in the gallery
+            const images = document.querySelectorAll(".gallery img");
+            
+            images.forEach(img => {
+                // Force cache bust by adding timestamp parameter
+                const timestamp = Date.now();
+                const currentSrc = img.src;
+                
+                // If it's a static frame URL, reload with cache busting
+                if (currentSrc.includes('/static-frame/')) {
+                    const baseUrl = currentSrc.split('?')[0]; // Remove existing query params
+                    img.src = `${baseUrl}?bust=${timestamp}`;
+                } else if (img.dataset.static) {
+                    // If it has a static frame dataset, use that with cache busting
+                    const baseUrl = img.dataset.static.split('?')[0];
+                    img.src = `${baseUrl}?bust=${timestamp}`;
+                    // Update the dataset to include cache busting for future use
+                    img.dataset.static = `${baseUrl}?bust=${timestamp}`;
+                }
+            });
+        }
 
         zipBtn.addEventListener("click", async () => {
             const filename = zipFilenameInput.value.trim();
