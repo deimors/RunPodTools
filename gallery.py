@@ -9,6 +9,7 @@ import zipfile
 from webp import extract_webp_animation_metadata
 from images import get_image_metadata
 from datetime import datetime
+from typing import Dict
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -42,6 +43,9 @@ for directory in [webp_dir, upload_dir, archive_dir]:
 FILES_PER_PAGE = 12
 ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png'}
 
+# Static frame cache
+static_frame_cache:Dict[str, bytes] = {}
+
 app = Flask(__name__)
 
 def allowed_file(filename):
@@ -51,12 +55,22 @@ def allowed_file(filename):
 def static_frame(filename):
     """Serve a specific frame of an animated webp as a static image"""
     frame_type = request.args.get("frame", "first")  # Default to the first frame
+    cache_bust = request.args.get("bust", "")  # Cache busting parameter
+    
     # Replace .png extension with .webp for existence check
     if filename.endswith('.png'):
         filename = filename.replace('.png', '.webp')
+    
     full_path = os.path.join(webp_dir, filename)
     if not os.path.isfile(full_path) or not filename.lower().endswith('.webp'):
         abort(404)
+    
+    # Create cache key including frame type and cache bust parameter
+    cache_key = f"{filename}_{frame_type}_{cache_bust}"
+    
+    # Check if frame is already cached
+    if cache_key in static_frame_cache:
+        return Response(static_frame_cache[cache_key], mimetype='image/png')
     
     try:
         with Image.open(full_path) as img:
@@ -67,7 +81,12 @@ def static_frame(filename):
             output = io.BytesIO()
             img.save(output, format='PNG')  # Save as PNG
             output.seek(0)
-            return Response(output.getvalue(), mimetype='image/png')  # Serve as PNG
+            
+            # Cache the generated frame
+            frame_data = output.getvalue()
+            static_frame_cache[cache_key] = frame_data
+            
+            return Response(frame_data, mimetype='image/png')  # Serve as PNG
     except Exception as e:
         print(f"Error processing {filename}: {e}")
         return send_from_directory(webp_dir, filename)
@@ -271,6 +290,12 @@ def delete_files():
             if os.path.isfile(file_path):
                 os.remove(file_path)
                 deleted.append(file)
+                
+                # Remove cached static frames for this file
+                cache_keys_to_remove = [key for key in static_frame_cache.keys() if key.startswith(f"{file}_")]
+                for cache_key in cache_keys_to_remove:
+                    del static_frame_cache[cache_key]
+                    
         except Exception as e:
             errors.append(f"{file}: {str(e)}")
     
