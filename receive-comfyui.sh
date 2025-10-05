@@ -1,7 +1,9 @@
 #!/bin/bash
 
+path="${2:-/workspace/ComfyUI}"
+
 python receive.py -H "$1" \
--d /workspace/ComfyUI/models/loras \
--d /workspace/ComfyUI/models/diffusion_models \
--d /workspace/ComfyUI/models/text_encoders \
--d /workspace/ComfyUI/user/default/workflows
+-d "$path/models/loras" \
+-d "$path/models/diffusion_models" \
+-d "$path/models/text_encoders" \
+-d "$path/user/default/workflows"
