@@ -1,4 +1,5 @@
 from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import ResourceExistsError
 import os
 import argparse
 from tqdm import tqdm
@@ -18,6 +19,11 @@ def push_to_blob(filename, connection_string, container_name):
     
     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
     
+    try:
+        blob_service_client.create_container(container_name)
+    except ResourceExistsError:
+        pass
+    
     start_time = time.time()
     
     with tqdm(
@@ -29,11 +35,10 @@ def push_to_blob(filename, connection_string, container_name):
                 blob=blob_name
             )
             
-            # Upload with progress tracking
-            def upload_callback(response):
-                progress.update(len(response))
+            def progress_callback(bytes_transferred, total):
+                progress.update(bytes_transferred)
             
-            blob_client.upload_blob(data, overwrite=True, raw_response_hook=upload_callback)
+            blob_client.upload_blob(data, overwrite=True, progress_hook=progress_callback)
     
     end_time = time.time()
     upload_time = end_time - start_time
