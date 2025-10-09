@@ -8,26 +8,18 @@ import mimetypes
 
 mimetypes.add_type("image/webp", ".webp")
 
-def push_to_blob(filename, connection_string, container_name):
+def push_to_blob(filename, container_client):
     """
     Upload a file to Azure Blob Storage.
     
     Args:
         filename (str): Path to the file to upload
-        connection_string (str): Azure Storage connection string
-        container_name (str): Name of the blob container
+        container_client: Azure Blob Container client
     """
     blob_name = os.path.basename(filename)
     file_size = os.path.getsize(filename)
     content_type, _ = mimetypes.guess_type(filename)
     content_settings = ContentSettings(content_type=content_type or 'application/octet-stream')
-    
-    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-    
-    try:
-        blob_service_client.create_container(container_name)
-    except ResourceExistsError:
-        pass
     
     start_time = time.time()
     
@@ -35,10 +27,7 @@ def push_to_blob(filename, connection_string, container_name):
         total=file_size, unit='B', unit_scale=True, unit_divisor=1024, desc=f"Uploading: {os.path.basename(filename)}"
     ) as progress:
         with open(filename, 'rb') as data:
-            blob_client = blob_service_client.get_blob_client(
-                container=container_name, 
-                blob=blob_name
-            )
+            blob_client = container_client.get_blob_client(blob_name)
             
             def progress_callback(bytes_transferred, total):
                 progress.update(bytes_transferred)
@@ -51,14 +40,13 @@ def push_to_blob(filename, connection_string, container_name):
     
     print(f"Uploaded {filename} as {blob_name} | Size: {file_size:,} bytes | Content Type: {content_type} | Time: {upload_time:.2f}s | Speed: {upload_speed / (1024 * 1024):.2f} MB/s")
 
-def push_all(directory, connection_string, container_name):
+def push_all(directory, container_client):
     """
     Upload all files in a directory to Azure Blob Storage.
     
     Args:
         directory (str): Path to the directory containing files to upload
-        connection_string (str): Azure Storage connection string
-        container_name (str): Name of the blob container
+        container_client: Azure Blob Container client
     """
     if not os.path.isdir(directory):
         print(f"Error: {directory} is not a valid directory")
@@ -67,7 +55,16 @@ def push_all(directory, connection_string, container_name):
     for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
         if os.path.isfile(filepath):
-            push_to_blob(filepath, connection_string, container_name)
+            blob_name = os.path.basename(filepath)
+            
+            try:
+                container_client.get_blob_client(blob_name).get_blob_properties()
+                print(f"Skipping: {filename} (blob exists)")
+                continue
+            except Exception:
+                pass
+            
+            push_to_blob(filepath, container_client)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Upload files to Azure Blob Storage')
@@ -77,7 +74,14 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    push_all(args.directory, args.connection_string, args.container_name)
-    args = parser.parse_args()
+    # Create blob service client and container client once
+    blob_service_client = BlobServiceClient.from_connection_string(args.connection_string)
     
-    push_all(args.directory, args.connection_string, args.container_name)
+    try:
+        blob_service_client.create_container(args.container_name)
+    except ResourceExistsError:
+        pass
+    
+    container_client = blob_service_client.get_container_client(args.container_name)
+    
+    push_all(args.directory, container_client)
