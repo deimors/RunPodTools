@@ -1,9 +1,12 @@
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
 import os
 import argparse
 from tqdm import tqdm
 import time
+import mimetypes
+
+mimetypes.add_type("image/webp", ".webp")
 
 def push_to_blob(filename, connection_string, container_name):
     """
@@ -16,6 +19,8 @@ def push_to_blob(filename, connection_string, container_name):
     """
     blob_name = os.path.basename(filename)
     file_size = os.path.getsize(filename)
+    content_type, _ = mimetypes.guess_type(filename)
+    content_settings = ContentSettings(content_type=content_type or 'application/octet-stream')
     
     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
     
@@ -37,14 +42,14 @@ def push_to_blob(filename, connection_string, container_name):
             
             def progress_callback(bytes_transferred, total):
                 progress.update(bytes_transferred)
-            
-            blob_client.upload_blob(data, overwrite=True, progress_hook=progress_callback)
-    
+
+            blob_client.upload_blob(data, overwrite=True, content_settings=content_settings, progress_hook=progress_callback)
+
     end_time = time.time()
     upload_time = end_time - start_time
     upload_speed = file_size / upload_time if upload_time > 0 else 0
     
-    print(f"Uploaded {filename} as {blob_name} | Size: {file_size:,} bytes | Time: {upload_time:.2f}s | Speed: {upload_speed / (1024 * 1024):.2f} MB/s")
+    print(f"Uploaded {filename} as {blob_name} | Size: {file_size:,} bytes | Content Type: {content_type} | Time: {upload_time:.2f}s | Speed: {upload_speed / (1024 * 1024):.2f} MB/s")
 
 def push_all(directory, connection_string, container_name):
     """
