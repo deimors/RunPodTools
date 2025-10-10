@@ -2,3 +2,4 @@ flask==2.3.2
 requests==2.31.0
 tqdm==4.66.1
 azure-storage-blob==12.19.0
+watchdog==3.0.0

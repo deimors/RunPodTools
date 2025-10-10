@@ -5,6 +5,9 @@ import argparse
 from tqdm import tqdm
 import time
 import mimetypes
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import threading
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -66,11 +69,93 @@ def push_all(directory, container_client):
             
             push_to_blob(filepath, container_client)
 
+class FileUploadHandler(FileSystemEventHandler):
+    def __init__(self, container_client):
+        self.container_client = container_client
+        self.pending_files = {}
+        self.lock = threading.Lock()
+    
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        
+        filepath = event.src_path
+        # Track file creation time
+        with self.lock:
+            self.pending_files[filepath] = time.time()
+        
+        # Schedule check to verify file is complete
+        threading.Timer(2.0, self.check_and_upload, args=[filepath]).start()
+    
+    def check_and_upload(self, filepath):
+        if not os.path.exists(filepath):
+            return
+        
+        # Check if file size has stabilized
+        try:
+            initial_size = os.path.getsize(filepath)
+            time.sleep(1)
+            final_size = os.path.getsize(filepath)
+            
+            if initial_size != final_size:
+                # File still being written, check again later
+                threading.Timer(2.0, self.check_and_upload, args=[filepath]).start()
+                return
+            
+            # File is stable, check if blob exists
+            blob_name = os.path.basename(filepath)
+            try:
+                self.container_client.get_blob_client(blob_name).get_blob_properties()
+                print(f"Skipping: {blob_name} (blob exists)")
+                return
+            except Exception:
+                pass
+            
+            # Upload the file
+            push_to_blob(filepath, self.container_client)
+            
+            # Remove from pending files
+            with self.lock:
+                self.pending_files.pop(filepath, None)
+                
+        except Exception as e:
+            print(f"Error processing {filepath}: {e}")
+
+def watch_and_push(directory, container_client):
+    """
+    Watch a directory for new files and upload them to Azure Blob Storage.
+    
+    Args:
+        directory (str): Path to the directory to watch
+        container_client: Azure Blob Container client
+    """
+    if not os.path.isdir(directory):
+        print(f"Error: {directory} is not a valid directory")
+        return
+    
+    event_handler = FileUploadHandler(container_client)
+    observer = Observer()
+    observer.schedule(event_handler, directory, recursive=False)
+    observer.start()
+    
+    print(f"Watching directory: {directory}")
+    print("Press Ctrl+C to stop...")
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+        print("\nStopped watching directory")
+    
+    observer.join()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Upload files to Azure Blob Storage')
     parser.add_argument('connection_string', help='Azure Storage connection string')
     parser.add_argument('container_name', help='Azure Blob container name')
     parser.add_argument('-d', '--directory', default='.', help='Directory to upload (default: current directory)')
+    parser.add_argument('-w', '--watch', action='store_true', help='Watch directory for new files after initial upload')
     
     args = parser.parse_args()
     
@@ -85,3 +170,6 @@ if __name__ == "__main__":
     container_client = blob_service_client.get_container_client(args.container_name)
     
     push_all(args.directory, container_client)
+    
+    if args.watch:
+        watch_and_push(args.directory, container_client)
