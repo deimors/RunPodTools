@@ -8,7 +8,7 @@ import argparse
 import zipfile
 from datetime import datetime
 from typing import Dict
-from gallery_source import FilesystemGallerySource
+from gallery_source import FilesystemGallerySource, GallerySource
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -21,9 +21,11 @@ webp_dir = os.path.abspath(args.webp_dir)
 upload_dir = os.path.abspath(args.upload_dir) if args.upload_dir else webp_dir
 archive_dir = os.path.abspath(args.archive_dir) if args.archive_dir else webp_dir
 
-# Initialize gallery source
+# Initialize gallery sources - one for each directory
 try:
-    gallery_source = FilesystemGallerySource(webp_dir, upload_dir, archive_dir)
+    webp_source = FilesystemGallerySource(webp_dir)
+    uploads_source = FilesystemGallerySource(upload_dir)
+    archive_source = FilesystemGallerySource(archive_dir, allowed_extensions={'zip'})
 except ValueError as e:
     print(f"Error: {e}")
     sys.exit(1)
@@ -43,39 +45,35 @@ def allowed_file(filename):
 @app.route("/static-frame/<path:filename>")
 def static_frame(filename):
     """Serve a specific frame of an animated webp as a static image"""
-    frame_type = request.args.get("frame", "first")  # Default to the first frame
-    cache_bust = request.args.get("bust", "")  # Cache busting parameter
+    frame_type = request.args.get("frame", "first")
+    cache_bust = request.args.get("bust", "")
     
-    # Replace .png extension with .webp for existence check
     if filename.endswith('.png'):
         filename = filename.replace('.png', '.webp')
     
-    if not gallery_source.file_exists(filename, "webp") or not filename.lower().endswith('.webp'):
+    if not webp_source.file_exists(filename) or not filename.lower().endswith('.webp'):
         abort(404)
     
-    # Create cache key including frame type and cache bust parameter
     cache_key = f"{filename}_{frame_type}_{cache_bust}"
     
-    # Check if frame is already cached
     if cache_key in static_frame_cache:
         return Response(static_frame_cache[cache_key], mimetype='image/png')
     
     try:
-        full_path = gallery_source.get_file_path(filename, "webp")
+        full_path = webp_source.get_file_path(filename)
         with Image.open(full_path) as img:
             if frame_type == "last":
-                img.seek(img.n_frames - 1)  # Get the last frame
+                img.seek(img.n_frames - 1)
             else:
-                img.seek(0)  # Default to the first frame
+                img.seek(0)
             output = io.BytesIO()
-            img.save(output, format='PNG')  # Save as PNG
+            img.save(output, format='PNG')
             output.seek(0)
             
-            # Cache the generated frame
             frame_data = output.getvalue()
             static_frame_cache[cache_key] = frame_data
             
-            return Response(frame_data, mimetype='image/png')  # Serve as PNG
+            return Response(frame_data, mimetype='image/png')
     except Exception as e:
         print(f"Error processing {filename}: {e}")
         return send_from_directory(webp_dir, filename)
@@ -84,44 +82,55 @@ def static_frame(filename):
 def index():
     return render_template("gallery.html")
 
+def get_source_for_directory(dir_name: str) -> GallerySource:
+    """Get the appropriate gallery source based on directory name."""
+    if dir_name == "webp":
+        return webp_source
+    elif dir_name == "uploads":
+        return uploads_source
+    elif dir_name == "archive":
+        return archive_source
+    else:
+        return webp_source  # default
+
 @app.route("/images")
 def list_images():
     dir_name = request.args.get("dir", "webp")
     page = int(request.args.get("page", 0))
-    sort_by = request.args.get("sort_by", "date")  # Options: "filename", "date", "size"
-    sort_dir = request.args.get("sort_dir", "asc")  # Options: "asc", "desc"
-    directory_type = "webp" if dir_name == "webp" else "uploads"
+    sort_by = request.args.get("sort_by", "date")
+    sort_dir = request.args.get("sort_dir", "asc")
     
-    all_files = gallery_source.list_files(directory_type)
+    source = get_source_for_directory(dir_name)
+    all_files = source.list_files()
     
     # Sorting logic
     def sort_key(file):
         if sort_by == "filename":
             return file.lower()
         elif sort_by == "size":
-            return gallery_source.get_file_size(file, directory_type)
+            return source.get_file_size(file)
         elif sort_by == "date":
-            return gallery_source.get_file_mtime(file, directory_type)
-        return gallery_source.get_file_mtime(file, directory_type)
+            return source.get_file_mtime(file)
+        return source.get_file_mtime(file)
 
     reverse = sort_dir == "desc"
     all_files = sorted(all_files, key=sort_key, reverse=reverse)
 
     start = page * FILES_PER_PAGE
     end = start + FILES_PER_PAGE
-    files_metadata = [gallery_source.get_file_metadata(file, directory_type) for file in all_files[start:end]]
+    files_metadata = [source.get_file_metadata(file) for file in all_files[start:end]]
 
     return jsonify({"files": files_metadata})
 
 @app.route("/webp/<path:filename>")
 def webp_file(filename):
-    if not gallery_source.file_exists(filename, "webp"):
+    if not webp_source.file_exists(filename):
         abort(404)
     return send_from_directory(webp_dir, filename)
 
 @app.route("/uploads/<path:filename>")
 def uploads_file(filename):
-    if not gallery_source.file_exists(filename, "uploads"):
+    if not uploads_source.file_exists(filename):
         abort(404)
     return send_from_directory(upload_dir, filename)
 
@@ -134,7 +143,7 @@ def upload_file():
         return jsonify({"message": "No selected file"}), 400
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        if gallery_source.save_file(filename, file, "uploads"):
+        if uploads_source.save_file(filename, file):
             return jsonify({"message": f"File '{filename}' uploaded successfully"}), 200
         else:
             return jsonify({"message": "Failed to save file"}), 500
@@ -143,21 +152,20 @@ def upload_file():
 @app.route("/archives")
 def list_archives():
     """List all .zip files in the archive directory, including their contents."""
-    sort_by = request.args.get("sort_by", "date")  # Options: "filename", "date", "size"
-    sort_dir = request.args.get("sort_dir", "asc")  # Options: "asc", "desc"
+    sort_by = request.args.get("sort_by", "date")
+    sort_dir = request.args.get("sort_dir", "asc")
     
-    archive_files = [f for f in os.listdir(archive_dir) if f.lower().endswith(".zip")]
+    archive_files = archive_source.list_files()
     
     # Sorting logic
     def sort_key(file):
-        file_path = os.path.join(archive_dir, file)
         if sort_by == "filename":
             return file.lower()
         elif sort_by == "size":
-            return os.path.getsize(file_path)
+            return archive_source.get_file_size(file)
         elif sort_by == "date":
-            return os.path.getmtime(file_path)
-        return os.path.getmtime(file_path)  # Default to date
+            return archive_source.get_file_mtime(file)
+        return archive_source.get_file_mtime(file)
 
     reverse = sort_dir == "desc"
     archive_files = sorted(archive_files, key=sort_key, reverse=reverse)
@@ -165,7 +173,7 @@ def list_archives():
     files_metadata = []
 
     for file in archive_files:
-        file_path = os.path.join(archive_dir, file)
+        file_path = archive_source.get_file_path(file)
         last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
         zip_contents = []
 
@@ -181,7 +189,7 @@ def list_archives():
 
         files_metadata.append({
             "name": file,
-            "size_bytes": os.path.getsize(file_path),
+            "size_bytes": archive_source.get_file_size(file),
             "last_modified": last_modified,
             "contents": zip_contents
         })
@@ -199,18 +207,17 @@ def archive_files():
     if not files:
         return jsonify({"success": False, "message": "No files selected"}), 400
 
-    directory_type = "webp" if directory == "webp" else "uploads"
-    zip_path = os.path.join(archive_dir, filename)  # Use archive_dir instead of zip_dir
+    source = get_source_for_directory(directory)
+    zip_path = archive_source.get_file_path(filename)
 
-    # Check if the target file already exists
     if os.path.exists(zip_path):
         return jsonify({"success": False, "message": f"File '{filename}' already exists"}), 400
 
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
             for file in files:
-                if gallery_source.file_exists(file, directory_type):
-                    file_path = gallery_source.get_file_path(file, directory_type)
+                if source.file_exists(file):
+                    file_path = source.get_file_path(file)
                     zipf.write(file_path, arcname=file)
         return jsonify({"success": True, "filename": filename}), 200
     except Exception as e:
@@ -220,9 +227,9 @@ def archive_files():
 @app.route("/download/<path:filename>")
 def download_file(filename):
     """Serve the zip file for download."""
-    zip_path = os.path.join(archive_dir, filename)  # Use archive_dir instead of zip_dir
-    if not os.path.isfile(zip_path):
+    if not archive_source.file_exists(filename):
         abort(404)
+    zip_path = archive_source.get_file_path(filename)
     return send_file(zip_path, as_attachment=True)
 
 @app.route("/delete", methods=["POST"])
@@ -235,12 +242,12 @@ def delete_files():
     if not files:
         return jsonify({"success": False, "message": "No files selected"}), 400
     
-    directory_type = "webp" if directory == "webp" else "uploads"
+    source = get_source_for_directory(directory)
     deleted = []
     errors = []
     
     for file in files:
-        if gallery_source.delete_file(file, directory_type):
+        if source.delete_file(file):
             deleted.append(file)
             
             # Remove cached static frames for this file
@@ -269,21 +276,22 @@ def extract_archive():
     if not archive_name:
         return jsonify({"success": False, "message": "No archive filename provided"}), 400
 
-    archive_path = os.path.join(archive_dir, archive_name)
-    if not os.path.isfile(archive_path) or not archive_name.lower().endswith(".zip"):
+    if not archive_source.file_exists(archive_name) or not archive_name.lower().endswith(".zip"):
         return jsonify({"success": False, "message": "Invalid archive file"}), 400
+
+    archive_path = archive_source.get_file_path(archive_name)
 
     try:
         with zipfile.ZipFile(archive_path, "r") as zipf:
             for zip_info in zipf.infolist():
                 original_name = zip_info.filename
-                target_path = gallery_source.get_file_path(original_name, "webp")
+                target_path = webp_source.get_file_path(original_name)
 
                 if os.path.exists(target_path):
                     base_name, ext = os.path.splitext(original_name)
                     counter = 1
                     while os.path.exists(target_path):
-                        target_path = gallery_source.get_file_path(f"{base_name}_{counter}{ext}", "webp")
+                        target_path = webp_source.get_file_path(f"{base_name}_{counter}{ext}")
                         counter += 1
 
                 with zipf.open(zip_info) as source, open(target_path, "wb") as target:

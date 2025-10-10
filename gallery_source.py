@@ -9,33 +9,43 @@ class GallerySource(ABC):
     """Abstract base class for gallery sources."""
     
     @abstractmethod
-    def list_files(self, directory_type: str = "webp") -> List[str]:
-        """List all files in the specified directory."""
+    def list_files(self) -> List[str]:
+        """List all files in the source."""
         pass
     
     @abstractmethod
-    def get_file_path(self, filename: str, directory_type: str = "webp") -> str:
+    def get_file_path(self, filename: str) -> str:
         """Get the full path to a file."""
         pass
     
     @abstractmethod
-    def file_exists(self, filename: str, directory_type: str = "webp") -> bool:
+    def file_exists(self, filename: str) -> bool:
         """Check if a file exists."""
         pass
     
     @abstractmethod
-    def get_file_metadata(self, filename: str, directory_type: str = "webp") -> Dict:
+    def get_file_metadata(self, filename: str) -> Dict:
         """Get metadata for a file."""
         pass
     
     @abstractmethod
-    def save_file(self, filename: str, file_data, directory_type: str = "uploads") -> bool:
+    def save_file(self, filename: str, file_data) -> bool:
         """Save a file to the source."""
         pass
     
     @abstractmethod
-    def delete_file(self, filename: str, directory_type: str = "webp") -> bool:
+    def delete_file(self, filename: str) -> bool:
         """Delete a file from the source."""
+        pass
+    
+    @abstractmethod
+    def get_file_size(self, filename: str) -> int:
+        """Get the size of a file in bytes."""
+        pass
+    
+    @abstractmethod
+    def get_file_mtime(self, filename: str) -> float:
+        """Get the modification time of a file."""
         pass
 
 class FilesystemGallerySource(GallerySource):
@@ -43,46 +53,31 @@ class FilesystemGallerySource(GallerySource):
     
     ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png'}
     
-    def __init__(self, webp_dir: str, upload_dir: str, archive_dir: str):
-        self.webp_dir = os.path.abspath(webp_dir)
-        self.upload_dir = os.path.abspath(upload_dir)
-        self.archive_dir = os.path.abspath(archive_dir)
+    def __init__(self, directory: str, allowed_extensions: Optional[set] = None):
+        self.directory = os.path.abspath(directory)
+        self.allowed_extensions = allowed_extensions or self.ALLOWED_EXTENSIONS
         
-        # Validate directories
-        for directory in [self.webp_dir, self.upload_dir, self.archive_dir]:
-            if not os.path.isdir(directory):
-                raise ValueError(f"'{directory}' is not a valid directory")
+        # Validate directory
+        if not os.path.isdir(self.directory):
+            raise ValueError(f"'{self.directory}' is not a valid directory")
     
-    def _get_directory(self, directory_type: str) -> str:
-        """Get the directory path based on type."""
-        if directory_type == "webp":
-            return self.webp_dir
-        elif directory_type == "uploads":
-            return self.upload_dir
-        elif directory_type == "archive":
-            return self.archive_dir
-        else:
-            raise ValueError(f"Invalid directory type: {directory_type}")
+    def list_files(self) -> List[str]:
+        """List all files in the source."""
+        return [f for f in os.listdir(self.directory) 
+                if any(f.lower().endswith(ext) for ext in self.allowed_extensions)]
     
-    def list_files(self, directory_type: str = "webp") -> List[str]:
-        """List all files in the specified directory."""
-        target_dir = self._get_directory(directory_type)
-        return [f for f in os.listdir(target_dir) 
-                if any(f.lower().endswith(ext) for ext in self.ALLOWED_EXTENSIONS)]
-    
-    def get_file_path(self, filename: str, directory_type: str = "webp") -> str:
+    def get_file_path(self, filename: str) -> str:
         """Get the full path to a file."""
-        target_dir = self._get_directory(directory_type)
-        return os.path.join(target_dir, filename)
+        return os.path.join(self.directory, filename)
     
-    def file_exists(self, filename: str, directory_type: str = "webp") -> bool:
+    def file_exists(self, filename: str) -> bool:
         """Check if a file exists."""
-        file_path = self.get_file_path(filename, directory_type)
+        file_path = self.get_file_path(filename)
         return os.path.isfile(file_path)
     
-    def get_file_metadata(self, filename: str, directory_type: str = "webp") -> Dict:
+    def get_file_metadata(self, filename: str) -> Dict:
         """Get metadata for a file."""
-        file_path = self.get_file_path(filename, directory_type)
+        file_path = self.get_file_path(filename)
         last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
         
         if filename.lower().endswith(".webp"):
@@ -113,30 +108,30 @@ class FilesystemGallerySource(GallerySource):
         else:
             return {"name": filename, "last_modified": last_modified}
     
-    def get_file_size(self, filename: str, directory_type: str = "webp") -> int:
+    def get_file_size(self, filename: str) -> int:
         """Get the size of a file in bytes."""
-        file_path = self.get_file_path(filename, directory_type)
+        file_path = self.get_file_path(filename)
         return os.path.getsize(file_path)
     
-    def get_file_mtime(self, filename: str, directory_type: str = "webp") -> float:
+    def get_file_mtime(self, filename: str) -> float:
         """Get the modification time of a file."""
-        file_path = self.get_file_path(filename, directory_type)
+        file_path = self.get_file_path(filename)
         return os.path.getmtime(file_path)
     
-    def save_file(self, filename: str, file_data, directory_type: str = "uploads") -> bool:
+    def save_file(self, filename: str, file_data) -> bool:
         """Save a file to the source."""
         try:
-            file_path = self.get_file_path(filename, directory_type)
+            file_path = self.get_file_path(filename)
             file_data.save(file_path)
             return True
         except Exception as e:
             print(f"Error saving file {filename}: {e}")
             return False
     
-    def delete_file(self, filename: str, directory_type: str = "webp") -> bool:
+    def delete_file(self, filename: str) -> bool:
         """Delete a file from the source."""
         try:
-            file_path = self.get_file_path(filename, directory_type)
+            file_path = self.get_file_path(filename)
             if os.path.isfile(file_path):
                 os.remove(file_path)
                 return True
