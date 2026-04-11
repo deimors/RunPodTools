@@ -525,7 +525,7 @@
         let page = 0;
         let loading = false;
         let done = false;
-        let currentDir = "webp"; // Default to WebP directory
+        let currentDir = "gallery"; // Default to gallery directory
         let lastSelectedIndex = -1; // Track the last selected image index
 
         const gallery = document.getElementById("gallery");
@@ -872,7 +872,7 @@
         }
 
         function updateActiveFolderButton(dir) {
-            galleryBtn.classList.toggle("active", dir === "webp");
+            galleryBtn.classList.toggle("active", dir === "gallery");
             uploadsBtn.classList.toggle("active", dir === "uploads");
             archivesBtn.classList.toggle("active", dir === "archives");
         }
@@ -889,7 +889,7 @@
             loadMore(); // Load new directory contents
 
             // Update heading text
-            mainHeadingName.innerHTML = dir === "webp" ? "Gallery" : "Uploads";
+            mainHeadingName.innerHTML = dir === "gallery" ? "Gallery" : "Uploads";
 
             updateActiveFolderButton(dir); // Update active folder button
         }
@@ -901,7 +901,7 @@
             return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
         }
 
-        galleryBtn.addEventListener("click", () => switchDirectory("webp"));
+        galleryBtn.addEventListener("click", () => switchDirectory("gallery"));
         uploadsBtn.addEventListener("click", () => switchDirectory("uploads"));
         archivesBtn.addEventListener("click", async () => {
             currentDir = "archives"; // Switch to archives directory

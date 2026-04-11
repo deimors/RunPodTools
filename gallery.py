@@ -14,19 +14,19 @@ from gallery_source import FilesystemGallerySource, GallerySource
 from mp4 import extract_mp4_first_frame
 
 # Parse command-line arguments
-parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
-parser.add_argument("webp_dir", help="Path to the WebP folder")
+parser = argparse.ArgumentParser(description="RunPodTools Media Gallery")
+parser.add_argument("gallery_dir", help="Path to the gallery folder")
 parser.add_argument("-u", "--upload_dir", help="Path to the alternate upload directory", default=None)
 parser.add_argument("-a", "--archive_dir", help="Path to the archive target directory", default=None)
 args = parser.parse_args()
 
-webp_dir = os.path.abspath(args.webp_dir)
-upload_dir = os.path.abspath(args.upload_dir) if args.upload_dir else webp_dir
-archive_dir = os.path.abspath(args.archive_dir) if args.archive_dir else webp_dir
+gallery_dir = os.path.abspath(args.gallery_dir)
+upload_dir = os.path.abspath(args.upload_dir) if args.upload_dir else gallery_dir
+archive_dir = os.path.abspath(args.archive_dir) if args.archive_dir else gallery_dir
 
 # Initialize gallery sources - one for each directory
 try:
-    webp_source = FilesystemGallerySource(webp_dir)
+    gallery_source = FilesystemGallerySource(gallery_dir)
     uploads_source = FilesystemGallerySource(upload_dir)
     archive_source = FilesystemGallerySource(archive_dir, allowed_extensions={'zip'})
 except ValueError as e:
@@ -55,7 +55,7 @@ def static_frame(filename):
     if filename.endswith('.png'):
         filename = filename.replace('.png', '.webp')
     
-    if not webp_source.file_exists(filename) or not filename.lower().endswith('.webp'):
+    if not gallery_source.file_exists(filename) or not filename.lower().endswith('.webp'):
         abort(404)
     
     cache_key = f"{filename}_{frame_type}_{cache_bust}"
@@ -64,7 +64,7 @@ def static_frame(filename):
         return Response(static_frame_cache[cache_key], mimetype='image/png')
     
     try:
-        full_path = webp_source.get_file_path(filename)
+        full_path = gallery_source.get_file_path(filename)
         with Image.open(full_path) as img:
             if frame_type == "last":
                 img.seek(img.n_frames - 1)
@@ -80,18 +80,18 @@ def static_frame(filename):
             return Response(frame_data, mimetype='image/png')
     except Exception as e:
         print(f"Error processing {filename}: {e}")
-        return send_from_directory(webp_dir, filename)
+        return send_from_directory(gallery_dir, filename)
 
 @app.route("/video-thumbnail/<path:filename>")
 def video_thumbnail(filename):
     """Serve the first frame of an MP4 as a PNG thumbnail"""
-    if not webp_source.file_exists(filename) or not filename.lower().endswith('.mp4'):
+    if not gallery_source.file_exists(filename) or not filename.lower().endswith('.mp4'):
         abort(404)
 
     if filename in video_thumbnail_cache:
         return Response(video_thumbnail_cache[filename], mimetype='image/png')
 
-    full_path = webp_source.get_file_path(filename)
+    full_path = gallery_source.get_file_path(filename)
     frame = extract_mp4_first_frame(full_path)
     if frame is None:
         abort(500)
@@ -112,18 +112,18 @@ def index():
 
 def get_source_for_directory(dir_name: str) -> GallerySource:
     """Get the appropriate gallery source based on directory name."""
-    if dir_name == "webp":
-        return webp_source
+    if dir_name == "gallery":
+        return gallery_source
     elif dir_name == "uploads":
         return uploads_source
     elif dir_name == "archive":
         return archive_source
     else:
-        return webp_source  # default
+        return gallery_source  # default
 
 @app.route("/images")
 def list_images():
-    dir_name = request.args.get("dir", "webp")
+    dir_name = request.args.get("dir", "gallery")
     page = int(request.args.get("page", 0))
     sort_by = request.args.get("sort_by", "date")
     sort_dir = request.args.get("sort_dir", "asc")
@@ -150,11 +150,11 @@ def list_images():
 
     return jsonify({"files": files_metadata})
 
-@app.route("/webp/<path:filename>")
-def webp_file(filename):
-    if not webp_source.file_exists(filename):
+@app.route("/gallery/<path:filename>")
+def gallery_file(filename):
+    if not gallery_source.file_exists(filename):
         abort(404)
-    return send_from_directory(webp_dir, filename)
+    return send_from_directory(gallery_dir, filename)
 
 @app.route("/uploads/<path:filename>")
 def uploads_file(filename):
@@ -230,7 +230,7 @@ def archive_files():
     data = request.json
     filename = secure_filename(data.get("filename", "archive.zip"))
     files = data.get("files", [])
-    directory = data.get("directory", "webp")
+    directory = data.get("directory", "gallery")
 
     if not files:
         return jsonify({"success": False, "message": "No files selected"}), 400
@@ -265,7 +265,7 @@ def delete_files():
     """Delete selected files from disk."""
     data = request.json
     files = data.get("files", [])
-    directory = data.get("directory", "webp")
+    directory = data.get("directory", "gallery")
     
     if not files:
         return jsonify({"success": False, "message": "No files selected"}), 400
@@ -300,7 +300,7 @@ def delete_files():
 
 @app.route("/archive/extract", methods=["POST"])
 def extract_archive():
-    """Extract a .zip file into the webp directory."""
+    """Extract a .zip file into the gallery directory."""
     data = request.json
     archive_name = data.get("filename")
 
@@ -316,13 +316,13 @@ def extract_archive():
         with zipfile.ZipFile(archive_path, "r") as zipf:
             for zip_info in zipf.infolist():
                 original_name = zip_info.filename
-                target_path = webp_source.get_file_path(original_name)
+                target_path = gallery_source.get_file_path(original_name)
 
                 if os.path.exists(target_path):
                     base_name, ext = os.path.splitext(original_name)
                     counter = 1
                     while os.path.exists(target_path):
-                        target_path = webp_source.get_file_path(f"{base_name}_{counter}{ext}")
+                        target_path = gallery_source.get_file_path(f"{base_name}_{counter}{ext}")
                         counter += 1
 
                 with zipf.open(zip_info) as source, open(target_path, "wb") as target:
@@ -334,6 +334,6 @@ def extract_archive():
         return jsonify({"success": False, "message": str(e)}), 500
 
 if __name__ == "__main__":
-    print(f"Serving from: {webp_dir}")
+    print(f"Serving from: {gallery_dir}")
     print(f"Uploads will be saved to: {upload_dir}")
     app.run(host="0.0.0.0", port=3137)
