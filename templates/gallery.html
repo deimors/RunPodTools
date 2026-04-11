@@ -540,6 +540,15 @@
         const lightbox = document.getElementById("lightbox");
         const lightboxImg = document.getElementById("lightbox-img");
         const lightboxVideo = document.getElementById("lightbox-video");
+        lightboxVideo.draggable = true;
+        lightboxVideo.addEventListener("dragstart", (e) => {
+            const src = lightboxVideo.src;
+            const fileName = src.split("/").pop();
+            e.dataTransfer.setData(
+                "DownloadURL",
+                `video/mp4:${fileName}:${src}`
+            );
+        });
         const modal = document.getElementById("modal");
         const modalTitle = document.getElementById("modal-title"); // Define modalTitle
         const zipFilenameInput = document.getElementById("zip-filename"); // Define zipFilenameInput
@@ -643,6 +652,14 @@
             video.style.width = "100%";
             video.style.height = "100%";
             video.style.objectFit = "cover";
+
+            video.draggable = true;
+            video.addEventListener("dragstart", (e) => {
+                e.dataTransfer.setData(
+                    "DownloadURL",
+                    `video/mp4:${fileName}:${window.location.origin}/${currentDir}/${fileName}`
+                );
+            });
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
