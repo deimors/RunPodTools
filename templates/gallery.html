@@ -861,6 +861,9 @@
                 const container = isMp4
                     ? createVideoElement(fileName, sortValue, fileDuration)
                     : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
+                container.dataset.sortDate = new Date(file.last_modified).toISOString();
+                container.dataset.sortFilename = fileName.toLowerCase();
+                container.dataset.sortSize = file.size_bytes || 0;
                 gallery.appendChild(container);
             });
 
@@ -999,6 +1002,36 @@
             });
         }
 
+        function insertSorted(container) {
+            const sortKey = sortBy.value;
+            const dir = sortDir.value;
+
+            function getSortValue(c) {
+                if (sortKey === 'date') return c.dataset.sortDate || '';
+                if (sortKey === 'filename') return c.dataset.sortFilename || '';
+                return Number(c.dataset.sortSize) || 0;
+            }
+
+            const newVal = getSortValue(container);
+            const containers = Array.from(gallery.children);
+
+            let insertBefore = null;
+            for (const existing of containers) {
+                const existingVal = getSortValue(existing);
+                const insertBeforeThis = dir === 'asc' ? newVal < existingVal : newVal > existingVal;
+                if (insertBeforeThis) {
+                    insertBefore = existing;
+                    break;
+                }
+            }
+
+            if (insertBefore) {
+                gallery.insertBefore(container, insertBefore);
+            } else {
+                gallery.appendChild(container);
+            }
+        }
+
         async function reloadGallery() {
             page = 0;
             done = false;
@@ -1092,10 +1125,24 @@
                     const isWebP = fileExt === 'webp';
                     const filePath = `/uploads/${file.name}`;
                     const animatedPath = isWebP ? `/uploads/${file.name}` : null;
+
+                    const uploadDate = new Date();
+                    let sortValue = null;
+                    if (sortBy.value === "date") {
+                        sortValue = uploadDate.toLocaleString();
+                    } else if (sortBy.value === "filename") {
+                        sortValue = file.name;
+                    } else if (sortBy.value === "size") {
+                        sortValue = formatFileSize(file.size || 0);
+                    }
+
                     const container = isMp4
-                        ? createVideoElement(file.name)
-                        : createImageElement(file.name, filePath, isWebP, animatedPath);
-                    gallery.appendChild(container);
+                        ? createVideoElement(file.name, sortValue)
+                        : createImageElement(file.name, filePath, isWebP, animatedPath, sortValue);
+                    container.dataset.sortDate = uploadDate.toISOString();
+                    container.dataset.sortFilename = file.name.toLowerCase();
+                    container.dataset.sortSize = file.size || 0;
+                    insertSorted(container);
                 }
             }
         }
