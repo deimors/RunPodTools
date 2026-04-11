@@ -63,9 +63,14 @@ class FilesystemGallerySource(GallerySource):
             raise ValueError(f"'{self.directory}' is not a valid directory")
     
     def list_files(self) -> List[str]:
-        """List all files in the source."""
-        return [f for f in os.listdir(self.directory) 
-                if any(f.lower().endswith(ext) for ext in self.allowed_extensions)]
+        """List all files in the source, recursively."""
+        result = []
+        for dirpath, _, filenames in os.walk(self.directory):
+            for f in filenames:
+                if any(f.lower().endswith(ext) for ext in self.allowed_extensions):
+                    rel = os.path.relpath(os.path.join(dirpath, f), self.directory)
+                    result.append(rel)
+        return result
     
     def get_file_path(self, filename: str) -> str:
         """Get the full path to a file."""
