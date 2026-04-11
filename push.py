@@ -10,6 +10,7 @@ from watchdog.events import FileSystemEventHandler
 import threading
 
 mimetypes.add_type("image/webp", ".webp")
+mimetypes.add_type("video/mp4", ".mp4")
 
 def push_to_blob(filename, container_client):
     """
@@ -91,18 +92,15 @@ class FileUploadHandler(FileSystemEventHandler):
         if not os.path.exists(filepath):
             return
         
-        # Check if file size has stabilized
         try:
             initial_size = os.path.getsize(filepath)
             time.sleep(1)
             final_size = os.path.getsize(filepath)
             
             if initial_size != final_size:
-                # File still being written, check again later
                 threading.Timer(2.0, self.check_and_upload, args=[filepath]).start()
                 return
             
-            # File is stable, check if blob exists
             blob_name = os.path.basename(filepath)
             try:
                 self.container_client.get_blob_client(blob_name).get_blob_properties()
@@ -111,10 +109,8 @@ class FileUploadHandler(FileSystemEventHandler):
             except Exception:
                 pass
             
-            # Upload the file
             push_to_blob(filepath, self.container_client)
             
-            # Remove from pending files
             with self.lock:
                 self.pending_files.pop(filepath, None)
                 
@@ -159,7 +155,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Create blob service client and container client once
     blob_service_client = BlobServiceClient.from_connection_string(args.connection_string)
     
     try:

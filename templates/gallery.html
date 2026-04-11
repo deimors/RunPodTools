@@ -208,6 +208,11 @@
             max-height: 90%;
             border-radius: 8px;
         }
+        #lightbox-video {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 8px;
+        }
         #lightbox-info {
             margin-top: 10px; /* Add spacing beneath the image */
             color: #fff;
@@ -458,8 +463,8 @@
             </div>
         </div>
         <div id="drop-area">
-            <p>Drag &amp; drop a .webp, .jpg, .jpeg, or .png file here to upload,<br>or click to select a file.</p>
-            <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png" style="display:none" />
+            <p>Drag &amp; drop a .webp, .jpg, .jpeg, .png, or .mp4 file here to upload,<br>or click to select a file.</p>
+            <input type="file" id="fileElem" accept=".webp,.jpg,.jpeg,.png,.mp4" style="display:none" />
             <div id="upload-status"></div>
         </div>
         <div class="gallery" id="gallery"></div>
@@ -472,6 +477,7 @@
     </div>
     <div id="lightbox">
         <img id="lightbox-img" src="" alt="Lightbox Image">
+        <video id="lightbox-video" controls loop style="display:none;"></video>
         <div id="lightbox-info"></div>
         <div id="lightbox-controls">
             <button id="play-animation-btn" class="active" title="Play Animation"><i class="fas fa-play"></i></button>
@@ -533,6 +539,7 @@
         const dropArea = document.getElementById("drop-area");
         const lightbox = document.getElementById("lightbox");
         const lightboxImg = document.getElementById("lightbox-img");
+        const lightboxVideo = document.getElementById("lightbox-video");
         const modal = document.getElementById("modal");
         const modalTitle = document.getElementById("modal-title"); // Define modalTitle
         const zipFilenameInput = document.getElementById("zip-filename"); // Define zipFilenameInput
@@ -618,6 +625,97 @@
                 img.src = img.dataset.animated;
             }
         }, 500);
+
+        function createVideoElement(fileName, sortValue = null, duration = null) {
+            const container = document.createElement("div");
+            container.className = "image-container";
+
+            const imageWrapper = document.createElement("div");
+            imageWrapper.className = "image-wrapper";
+
+            const video = document.createElement("video");
+            video.muted = true;
+            video.loop = true;
+            video.preload = "none";
+            video.poster = `/video-thumbnail/${fileName}`;
+            video.src = `/${currentDir}/${fileName}`;
+            video.alt = fileName;
+            video.style.width = "100%";
+            video.style.height = "100%";
+            video.style.objectFit = "cover";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "checkbox";
+
+            checkbox.addEventListener("click", (e) => {
+                if (e.shiftKey && lastSelectedIndex !== -1) {
+                    const checkboxes = Array.from(document.querySelectorAll(".gallery .checkbox"));
+                    const currentIndex = checkboxes.indexOf(checkbox);
+                    const [start, end] = [lastSelectedIndex, currentIndex].sort((a, b) => a - b);
+                    for (let i = start; i <= end; i++) {
+                        checkboxes[i].checked = checkbox.checked;
+                        checkboxes[i].closest(".image-container").classList.toggle("selected", checkbox.checked);
+                    }
+                }
+                lastSelectedIndex = Array.from(document.querySelectorAll(".gallery .checkbox")).indexOf(checkbox);
+            });
+
+            checkbox.addEventListener("change", () => {
+                container.classList.toggle("selected", checkbox.checked);
+            });
+
+            if (sortValue) {
+                const sortValueElement = document.createElement("div");
+                sortValueElement.className = "sort-value";
+                sortValueElement.textContent = sortValue;
+                imageWrapper.appendChild(sortValueElement);
+            }
+
+            if (duration) {
+                const durationElement = document.createElement("div");
+                durationElement.className = "duration";
+                durationElement.textContent = `${duration.toFixed(2)}s`;
+                imageWrapper.appendChild(durationElement);
+            }
+
+            container.addEventListener("mouseenter", () => video.play());
+            container.addEventListener("mouseleave", () => {
+                video.pause();
+                video.currentTime = 0;
+            });
+
+            video.addEventListener("click", (e) => {
+                if (e.target.className === "checkbox") return;
+                const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
+                const fileMetadata = fileMetadataCache[cacheKey];
+
+                lightboxImg.style.display = "none";
+                lightboxVideo.style.display = "block";
+                lightboxVideo.src = `/${currentDir}/${fileName}`;
+                lightboxVideo.play();
+                document.getElementById("lightbox-controls").style.display = "none";
+
+                if (fileMetadata) {
+                    const resolution = fileMetadata.resolution ? fileMetadata.resolution : "";
+                    const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "";
+                    const frameRate = fileMetadata.frame_rate ? `${fileMetadata.frame_rate.toFixed(2)} fps` : "";
+                    const fileSize = fileMetadata.size_bytes ? formatFileSize(fileMetadata.size_bytes) : "";
+                    const lastModified = fileMetadata.last_modified ? new Date(fileMetadata.last_modified).toLocaleString() : "";
+                    lightboxInfo.innerText = [fileName, resolution, duration, frameRate, fileSize, lastModified]
+                        .filter(Boolean).join(" | ");
+                } else {
+                    lightboxInfo.innerText = fileName;
+                }
+
+                lightbox.style.display = "flex";
+            });
+
+            imageWrapper.appendChild(video);
+            container.appendChild(imageWrapper);
+            container.appendChild(checkbox);
+            return container;
+        }
 
         function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null) {
             const container = document.createElement("div");
@@ -720,10 +818,11 @@
             data.files.forEach(file => {
                 const fileName = file.name;
                 const fileExt = fileName.split('.').pop().toLowerCase();
+                const isMp4 = fileExt === 'mp4';
                 const isWebP = fileExt === 'webp';
                 const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
                 const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
-                const fileDuration = isWebP ? file.duration_seconds : null;
+                const fileDuration = (isWebP || isMp4) ? file.duration_seconds : null;
 
                 // Store metadata in the cache
                 const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
@@ -738,7 +837,9 @@
                     sortValue = formatFileSize(file.size_bytes || 0);
                 }
 
-                const container = createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
+                const container = isMp4
+                    ? createVideoElement(fileName, sortValue, fileDuration)
+                    : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
                 gallery.appendChild(container);
             });
 
@@ -910,6 +1011,10 @@
         lightbox.addEventListener("click", () => {
             lightbox.style.display = "none";
             lightboxImg.src = "";
+            lightboxImg.style.display = "block";
+            lightboxVideo.pause();
+            lightboxVideo.src = "";
+            lightboxVideo.style.display = "none";
             lightboxInfo.innerText = ""; // Clear info text
         });
 
@@ -962,11 +1067,13 @@
             if (response.ok) {
                 for (const file of files) {
                     const fileExt = file.name.split('.').pop().toLowerCase();
+                    const isMp4 = fileExt === 'mp4';
                     const isWebP = fileExt === 'webp';
                     const filePath = `/uploads/${file.name}`;
                     const animatedPath = isWebP ? `/uploads/${file.name}` : null;
-                    const duration = isWebP ? result.duration_seconds : null;
-                    const container = createImageElement(file.name, filePath, isWebP, animatedPath);
+                    const container = isMp4
+                        ? createVideoElement(file.name)
+                        : createImageElement(file.name, filePath, isWebP, animatedPath);
                     gallery.appendChild(container);
                 }
             }

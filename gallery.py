@@ -4,11 +4,14 @@ from flask import Flask, send_from_directory, jsonify, render_template, abort, r
 from werkzeug.utils import secure_filename
 import io
 from PIL import Image
+import cv2
+import numpy as np
 import argparse
 import zipfile
 from datetime import datetime
 from typing import Dict
 from gallery_source import FilesystemGallerySource, GallerySource
+from mp4 import extract_mp4_first_frame
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="RunPodTools WebP Gallery")
@@ -32,10 +35,11 @@ except ValueError as e:
 
 # Constants
 FILES_PER_PAGE = 12
-ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png'}
+ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png', 'mp4'}
 
 # Static frame cache
 static_frame_cache:Dict[str, bytes] = {}
+video_thumbnail_cache:Dict[str, bytes] = {}
 
 app = Flask(__name__)
 
@@ -77,6 +81,30 @@ def static_frame(filename):
     except Exception as e:
         print(f"Error processing {filename}: {e}")
         return send_from_directory(webp_dir, filename)
+
+@app.route("/video-thumbnail/<path:filename>")
+def video_thumbnail(filename):
+    """Serve the first frame of an MP4 as a PNG thumbnail"""
+    if not webp_source.file_exists(filename) or not filename.lower().endswith('.mp4'):
+        abort(404)
+
+    if filename in video_thumbnail_cache:
+        return Response(video_thumbnail_cache[filename], mimetype='image/png')
+
+    full_path = webp_source.get_file_path(filename)
+    frame = extract_mp4_first_frame(full_path)
+    if frame is None:
+        abort(500)
+
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(rgb_frame)
+    output = io.BytesIO()
+    pil_img.save(output, format='PNG')
+    output.seek(0)
+    frame_data = output.getvalue()
+    video_thumbnail_cache[filename] = frame_data
+    return Response(frame_data, mimetype='image/png')
+
 
 @app.route("/")
 def index():
@@ -254,6 +282,9 @@ def delete_files():
             cache_keys_to_remove = [key for key in static_frame_cache.keys() if key.startswith(f"{file}_")]
             for cache_key in cache_keys_to_remove:
                 del static_frame_cache[cache_key]
+            # Remove cached video thumbnails for this file
+            if file in video_thumbnail_cache:
+                del video_thumbnail_cache[file]
         else:
             errors.append(f"{file}: Failed to delete")
     

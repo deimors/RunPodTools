@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from webp import extract_webp_animation_metadata
 from images import get_image_metadata
+from mp4 import extract_mp4_metadata
 
 class GallerySource(ABC):
     """Abstract base class for gallery sources."""
@@ -51,7 +52,7 @@ class GallerySource(ABC):
 class FilesystemGallerySource(GallerySource):
     """Filesystem-based gallery source implementation."""
     
-    ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png'}
+    ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png', 'mp4'}
     
     def __init__(self, directory: str, allowed_extensions: Optional[set] = None):
         self.directory = os.path.abspath(directory)
@@ -101,6 +102,19 @@ class FilesystemGallerySource(GallerySource):
                     "name": filename,
                     "size_bytes": metadata["file_size"],
                     "resolution": f"{metadata['width']}x{metadata['height']}",
+                    "last_modified": last_modified
+                }
+            else:
+                return {"name": filename, "error": metadata, "last_modified": last_modified}
+        elif filename.lower().endswith(".mp4"):
+            metadata = extract_mp4_metadata(file_path)
+            if isinstance(metadata, dict):
+                return {
+                    "name": filename,
+                    "size_bytes": metadata["file_size"],
+                    "resolution": f"{metadata['width']}x{metadata['height']}",
+                    "duration_seconds": metadata["duration_ms"] / 1000,
+                    "frame_rate": metadata["frame_rate"],
                     "last_modified": last_modified
                 }
             else:
