@@ -122,7 +122,7 @@ function createVideoElement(fileName, sortValue = null, duration = null) {
     video.muted = true;
     video.loop = true;
     video.preload = "none";
-    video.poster = `/video-thumbnail/${fileName}`;
+    video.poster = `/video-thumbnail/${currentDir}/${fileName}`;
     video.src = `/${currentDir}/${fileName}`;
     video.alt = fileName;
     video.style.width = "100%";

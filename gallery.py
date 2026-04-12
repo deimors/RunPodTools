@@ -82,16 +82,24 @@ def static_frame(filename):
         print(f"Error processing {filename}: {e}")
         return send_from_directory(gallery_dir, filename)
 
-@app.route("/video-thumbnail/<path:filename>")
-def video_thumbnail(filename):
+@app.route("/video-thumbnail/<dir>/<path:filename>")
+def video_thumbnail(dir, filename):
     """Serve the first frame of an MP4 as a PNG thumbnail"""
-    if not gallery_source.file_exists(filename) or not filename.lower().endswith('.mp4'):
+    if dir == 'gallery':
+        source = gallery_source
+    elif dir == 'uploads':
+        source = uploads_source
+    else:
+        abort(400)
+
+    if not source.file_exists(filename) or not filename.lower().endswith('.mp4'):
         abort(404)
 
-    if filename in video_thumbnail_cache:
-        return Response(video_thumbnail_cache[filename], mimetype='image/png')
+    cache_key = f"{dir}/{filename}"
+    if cache_key in video_thumbnail_cache:
+        return Response(video_thumbnail_cache[cache_key], mimetype='image/png')
 
-    full_path = gallery_source.get_file_path(filename)
+    full_path = source.get_file_path(filename)
     frame = extract_mp4_first_frame(full_path)
     if frame is None:
         abort(500)
@@ -102,7 +110,7 @@ def video_thumbnail(filename):
     pil_img.save(output, format='PNG')
     output.seek(0)
     frame_data = output.getvalue()
-    video_thumbnail_cache[filename] = frame_data
+    video_thumbnail_cache[cache_key] = frame_data
     return Response(frame_data, mimetype='image/png')
 
 
