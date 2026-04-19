@@ -7,6 +7,7 @@ let currentSubpath = ""; // Track the current subdirectory path
 let fetchController = null;
 const dirTreeCache = {};
 let dirPanelHideTimer = null;
+let activeDirBtn = null;
 
 const gallery = document.getElementById("gallery");
 const archivesContainer = document.getElementById("archives-container");
@@ -676,11 +677,20 @@ async function showDirPanel(dir, triggerBtn) {
     panel.style.left = (rect.right + 8) + "px";
     panel.style.top = (rect.bottom + 4) + "px";
     panel.style.display = "block";
+    if (activeDirBtn && activeDirBtn !== triggerBtn) {
+        activeDirBtn.classList.remove("tooltip-active");
+    }
+    activeDirBtn = triggerBtn;
+    triggerBtn.classList.add("tooltip-active");
 }
 
 function scheduleDirPanelHide() {
     dirPanelHideTimer = setTimeout(() => {
         document.getElementById("dir-panel").style.display = "none";
+        if (activeDirBtn) {
+            activeDirBtn.classList.remove("tooltip-active");
+            activeDirBtn = null;
+        }
     }, 200);
 }
 

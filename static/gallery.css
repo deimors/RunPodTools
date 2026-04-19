@@ -334,7 +334,8 @@ body {
     z-index: 1001;
 }
 
-#toolbar-icons button:hover::after {
+#toolbar-icons button:hover::after,
+#toolbar-icons button.tooltip-active::after {
     display: block;
 }
 
