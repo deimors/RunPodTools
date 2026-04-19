@@ -3,6 +3,7 @@ let loading = false;
 let done = false;
 let currentDir = "gallery"; // Default to gallery directory
 let lastSelectedIndex = -1; // Track the last selected image index
+let fetchController = null;
 
 const gallery = document.getElementById("gallery");
 const archivesContainer = document.getElementById("archives-container");
@@ -92,12 +93,6 @@ function debounce(func, delay) {
     };
 }
 
-function handleMouseEnter(img, loadingIndicator) {
-    img.dataset.hovering = "true"; // Mark as hovering
-    loadingIndicator.style.display = "block"; // Show loading indicator
-    img.src = img.dataset.animated; // Start downloading animation
-}
-
 function handleMouseLeave(img, loadingIndicator) {
     img.dataset.hovering = "false"; // Mark as not hovering
     loadingIndicator.style.display = "none"; // Hide loading indicator
@@ -124,7 +119,7 @@ function createVideoElement(fileName, sortValue = null, duration = null) {
     video.preload = "none";
     video.poster = `/video-thumbnail/${currentDir}/${fileName}`;
     video.src = `/${currentDir}/${fileName}`;
-    video.alt = fileName;
+    video.dataset.filename = fileName;
     video.style.width = "100%";
     video.style.height = "100%";
     video.style.objectFit = "cover";
@@ -181,7 +176,7 @@ function createVideoElement(fileName, sortValue = null, duration = null) {
 
     video.addEventListener("click", (e) => {
         if (e.target.className === "checkbox") return;
-        const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
+        const cacheKey = `${currentDir}/${fileName}`;
         const fileMetadata = fileMetadataCache[cacheKey];
 
         lightboxImg.style.display = "none";
@@ -294,60 +289,77 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
 
 const fileMetadataCache = {}; // Object to store metadata indexed by directory and filename
 
+function getSortLabel(sortKey, file) {
+    if (sortKey === "date") {
+        const ts = file.last_modified || (file.lastModified ? new Date(file.lastModified).toISOString() : null);
+        return ts ? new Date(ts).toLocaleString() : new Date().toLocaleString();
+    }
+    if (sortKey === "filename") return file.name;
+    if (sortKey === "size") return formatFileSize(file.size_bytes || file.size || 0);
+    return null;
+}
+
 async function loadMore() {
     if (loading || done) return;
     loading = true;
     loadingText.style.display = "block";
 
-    const response = await fetch(`/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
-    const data = await response.json();
+    if (fetchController) fetchController.abort();
+    fetchController = new AbortController();
 
-    if (data.files.length === 0) {
-        loadingText.innerText = "No more files.";
-        done = true;
-        loading = false;
-        return;
-    }
+    try {
+        const response = await fetch(
+            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`,
+            { signal: fetchController.signal }
+        );
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
 
-    data.files.forEach(file => {
-        const fileName = file.name;
-        const fileExt = fileName.split('.').pop().toLowerCase();
-        const isMp4 = fileExt === 'mp4';
-        const isWebP = fileExt === 'webp';
-        const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
-        const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
-        const fileDuration = (isWebP || isMp4) ? file.duration_seconds : null;
-
-        // Store metadata in the cache
-        const cacheKey = `${currentDir}_${fileName.replace(/\./g, '_')}`;
-        fileMetadataCache[cacheKey] = file;
-
-        let sortValue = null;
-        if (sortBy.value === "date") {
-            sortValue = new Date(file.last_modified).toLocaleString();
-        } else if (sortBy.value === "filename") {
-            sortValue = fileName;
-        } else if (sortBy.value === "size") {
-            sortValue = formatFileSize(file.size_bytes || 0);
+        if (data.files.length === 0) {
+            loadingText.innerText = "No more files.";
+            done = true;
+            return;
         }
 
-        const container = isMp4
-            ? createVideoElement(fileName, sortValue, fileDuration)
-            : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
-        container.dataset.sortDate = new Date(file.last_modified).toISOString();
-        container.dataset.sortFilename = fileName.toLowerCase();
-        container.dataset.sortSize = file.size_bytes || 0;
-        gallery.appendChild(container);
-    });
+        data.files.forEach(file => {
+            const fileName = file.name;
+            const fileExt = fileName.split('.').pop().toLowerCase();
+            const isMp4 = fileExt === 'mp4';
+            const isWebP = fileExt === 'webp';
+            const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
+            const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
+            const fileDuration = (isWebP || isMp4) ? file.duration_seconds : null;
 
-    page++;
-    loading = false;
+            const cacheKey = `${currentDir}/${fileName}`;
+            fileMetadataCache[cacheKey] = file;
 
-    // Check if enough images are loaded to create a scrollbar
-    const viewportHeight = window.innerHeight;
-    const contentHeight = document.body.scrollHeight;
-    if (contentHeight <= viewportHeight && !done) {
-        loadMore(); // Continue loading more images if no scrollbar yet
+            const sortValue = getSortLabel(sortBy.value, file);
+
+            const container = isMp4
+                ? createVideoElement(fileName, sortValue, fileDuration)
+                : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
+            container.dataset.sortDate = new Date(file.last_modified).toISOString();
+            container.dataset.sortFilename = fileName.toLowerCase();
+            container.dataset.sortSize = file.size_bytes || 0;
+            gallery.appendChild(container);
+        });
+
+        page++;
+        loadingText.style.display = "none";
+
+        // Check if enough images are loaded to create a scrollbar
+        const viewportHeight = window.innerHeight;
+        const contentHeight = document.body.scrollHeight;
+        if (contentHeight <= viewportHeight && !done) {
+            loadMore();
+        }
+    } catch (err) {
+        if (err.name !== "AbortError") {
+            loadingText.innerText = "Failed to load files.";
+            console.error("loadMore error:", err);
+        }
+    } finally {
+        loading = false;
     }
 }
 
@@ -358,9 +370,11 @@ function updateActiveFolderButton(dir) {
 }
 
 function switchDirectory(dir) {
+    if (fetchController) fetchController.abort();
     currentDir = dir;
     page = 0;
     done = false;
+    loading = false;
     gallery.innerHTML = ""; // Clear current gallery
     archivesContainer.style.display = "none"; // Show archives only for "Archives"
     gallery.style.display = "grid"; // Show gallery for "Gallery" and "Uploads"
@@ -390,9 +404,15 @@ archivesBtn.addEventListener("click", async () => {
     archivesContainer.style.display = "block"; // Show archives container
     loadingText.style.display = "none"; // Ensure loading text is hidden
 
-    const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
-    const data = await response.json();
-    populateArchives(data);
+    try {
+        const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        populateArchives(data);
+    } catch (err) {
+        console.error("Failed to load archives:", err);
+        archivesContainer.innerHTML = `<p>Failed to load archives: ${err.message}</p>`;
+    }
 
     updateActiveFolderButton("archives");
     mainHeadingName.innerHTML = "Archives"; // Update heading name
@@ -513,9 +533,14 @@ async function reloadGallery() {
 }
 
 async function reloadArchives() {
-    const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
-    const data = await response.json();
-    populateArchives(data);
+    try {
+        const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        populateArchives(data);
+    } catch (err) {
+        console.error("Failed to reload archives:", err);
+    }
 }
 
 sortBy.addEventListener("change", () => {
@@ -584,45 +609,48 @@ async function uploadFiles(files) {
     for (const file of files) {
         formData.append('file', file);
     }
-    const response = await fetch('/upload', {
-        method: 'POST',
-        body: formData
-    });
-    const result = await response.json();
-    uploadStatus.innerText = result.message;
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        uploadStatus.innerText = result.message;
 
-    if (response.ok) {
-        for (const file of files) {
-            const fileExt = file.name.split('.').pop().toLowerCase();
-            const isMp4 = fileExt === 'mp4';
-            const isWebP = fileExt === 'webp';
-            const filePath = `/uploads/${file.name}`;
-            const animatedPath = isWebP ? `/uploads/${file.name}` : null;
+        if (response.ok) {
+            for (const file of files) {
+                const fileExt = file.name.split('.').pop().toLowerCase();
+                const isMp4 = fileExt === 'mp4';
+                const isWebP = fileExt === 'webp';
+                const filePath = `/uploads/${file.name}`;
+                const animatedPath = isWebP ? `/uploads/${file.name}` : null;
 
-            const uploadDate = new Date();
-            let sortValue = null;
-            if (sortBy.value === "date") {
-                sortValue = uploadDate.toLocaleString();
-            } else if (sortBy.value === "filename") {
-                sortValue = file.name;
-            } else if (sortBy.value === "size") {
-                sortValue = formatFileSize(file.size || 0);
+                const uploadDate = new Date(file.lastModified || Date.now());
+                const sortValue = getSortLabel(sortBy.value, file);
+
+                const container = isMp4
+                    ? createVideoElement(file.name, sortValue)
+                    : createImageElement(file.name, filePath, isWebP, animatedPath, sortValue);
+                container.dataset.sortDate = uploadDate.toISOString();
+                container.dataset.sortFilename = file.name.toLowerCase();
+                container.dataset.sortSize = file.size || 0;
+                insertSorted(container);
             }
-
-            const container = isMp4
-                ? createVideoElement(file.name, sortValue)
-                : createImageElement(file.name, filePath, isWebP, animatedPath, sortValue);
-            container.dataset.sortDate = uploadDate.toISOString();
-            container.dataset.sortFilename = file.name.toLowerCase();
-            container.dataset.sortSize = file.size || 0;
-            insertSorted(container);
         }
+    } catch (err) {
+        console.error("Upload failed:", err);
+        uploadStatus.innerText = "Upload failed. Please try again.";
     }
 }
 
 function getSelectedImages() {
-    return Array.from(document.querySelectorAll(".gallery .image-container.selected img"))
-        .map(img => img.alt);
+    return Array.from(document.querySelectorAll(".gallery .image-container.selected"))
+        .map(container => {
+            const img = container.querySelector("img");
+            const video = container.querySelector("video");
+            return img ? img.alt : video ? video.dataset.filename : null;
+        })
+        .filter(Boolean);
 }
 
 document.getElementById("toolbar").addEventListener("click", (e) => {
@@ -721,7 +749,6 @@ zipBtn.addEventListener("click", async () => {
         body: JSON.stringify({ filename, files: selectedFiles, directory: currentDir }) // Include directory in request
     });
 
-    const modalProgress = document.getElementById("modal-progress");
     if (response.ok) {
         const result = await response.json();
         if (result.success) {
@@ -752,7 +779,8 @@ async function deleteFiles(files) {
         result.deleted.forEach(filename => {
             const imgContainer = Array.from(gallery.children).find(container => {
                 const img = container.querySelector("img");
-                return img && img.alt === filename;
+                const video = container.querySelector("video");
+                return (img && img.alt === filename) || (video && video.dataset.filename === filename);
             });
             if (imgContainer) {
                 gallery.removeChild(imgContainer);
@@ -805,7 +833,7 @@ showLastFrameBtn.addEventListener("click", (e) => {
 lightboxImg.addEventListener("load", () => {
     const filename = lightboxImg.src.split("/").pop().split('?')[0]; // Remove query parameters
     const originalFilename = filename.endsWith('.png') ? filename.replace('.png', '.webp') : filename;
-    const cacheKey = `${currentDir}_${originalFilename.replace(/\./g, '_')}`;
+    const cacheKey = `${currentDir}/${originalFilename}`;
     const fileMetadata = fileMetadataCache[cacheKey];
 
     if (fileMetadata) {
