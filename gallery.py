@@ -129,15 +129,23 @@ def get_source_for_directory(dir_name: str) -> GallerySource:
     else:
         return gallery_source  # default
 
+@app.route("/dirs")
+def list_dirs():
+    dir_name = request.args.get("dir", "gallery")
+    source = get_source_for_directory(dir_name)
+    tree = source.list_dir_tree()
+    return jsonify({"tree": tree})
+
 @app.route("/images")
 def list_images():
     dir_name = request.args.get("dir", "gallery")
     page = int(request.args.get("page", 0))
     sort_by = request.args.get("sort_by", "date")
     sort_dir = request.args.get("sort_dir", "asc")
+    subpath = request.args.get("subpath", "")
     
     source = get_source_for_directory(dir_name)
-    all_files = source.list_files()
+    all_files = source.list_files_in_dir(subpath)
     
     # Sorting logic
     def sort_key(file):

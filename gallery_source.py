@@ -158,3 +158,61 @@ class FilesystemGallerySource(GallerySource):
         except Exception as e:
             print(f"Error deleting file {filename}: {e}")
             return False
+
+    def _resolve_subpath(self, subpath: str) -> Optional[str]:
+        """Resolve subpath within directory, returning None if path traversal is detected."""
+        if not subpath:
+            return self.directory
+        target = os.path.normpath(os.path.join(self.directory, subpath))
+        if not (target == self.directory or target.startswith(self.directory + os.sep)):
+            return None
+        return target
+
+    def list_subdirs(self, subpath: str = "") -> List[str]:
+        """List immediate subdirectory names at base_dir/subpath."""
+        target = self._resolve_subpath(subpath)
+        if target is None or not os.path.isdir(target):
+            return []
+        result = []
+        try:
+            for entry in os.scandir(target):
+                if entry.is_dir():
+                    result.append(entry.name)
+        except PermissionError:
+            pass
+        return sorted(result)
+
+    def list_dir_tree(self, subpath: str = "") -> List[Dict]:
+        """Return full recursive directory tree as nested list of {name, path, children}."""
+        target = self._resolve_subpath(subpath)
+        if target is None or not os.path.isdir(target):
+            return []
+        result = []
+        try:
+            for entry in sorted(os.scandir(target), key=lambda e: e.name.lower()):
+                if entry.is_dir():
+                    child_subpath = os.path.relpath(entry.path, self.directory).replace(os.sep, '/')
+                    result.append({
+                        "name": entry.name,
+                        "path": child_subpath,
+                        "children": self.list_dir_tree(child_subpath)
+                    })
+        except PermissionError:
+            pass
+        return result
+
+    def list_files_in_dir(self, subpath: str = "") -> List[str]:
+        """List files (non-recursively) in base_dir/subpath matching allowed extensions."""
+        target = self._resolve_subpath(subpath)
+        if target is None or not os.path.isdir(target):
+            return []
+        result = []
+        try:
+            for entry in os.scandir(target):
+                if entry.is_file():
+                    if any(entry.name.lower().endswith('.' + ext) for ext in self.allowed_extensions):
+                        rel = os.path.relpath(entry.path, self.directory)
+                        result.append(rel)
+        except PermissionError:
+            pass
+        return result

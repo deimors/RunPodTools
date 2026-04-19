@@ -3,13 +3,17 @@ let loading = false;
 let done = false;
 let currentDir = "gallery"; // Default to gallery directory
 let lastSelectedIndex = -1; // Track the last selected image index
+let currentSubpath = ""; // Track the current subdirectory path
 let fetchController = null;
+const dirTreeCache = {};
+let dirPanelHideTimer = null;
 
 const gallery = document.getElementById("gallery");
 const archivesContainer = document.getElementById("archives-container");
 const loadedImages = new Map();
 const mainHeading = document.getElementById("main-heading");
 const mainHeadingName = document.getElementById("main-heading-name");
+const currentPathEl = document.getElementById("current-path");
 const galleryBtn = document.getElementById("gallery-btn");
 const uploadsBtn = document.getElementById("uploads-btn");
 const archivesBtn = document.getElementById("archives-btn");
@@ -276,6 +280,7 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
 
     img.addEventListener("click", (e) => {
         if (e.target.className === "checkbox") return;
+        lightboxImg.dataset.filename = fileName;
         lightboxImg.src = isWebP && animatedPath ? img.dataset.animated : img.src;
         lightbox.style.display = "flex";
     });
@@ -309,7 +314,7 @@ async function loadMore() {
 
     try {
         const response = await fetch(
-            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}`,
+            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}`,
             { signal: fetchController.signal }
         );
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -372,6 +377,7 @@ function updateActiveFolderButton(dir) {
 function switchDirectory(dir) {
     if (fetchController) fetchController.abort();
     currentDir = dir;
+    currentSubpath = "";
     page = 0;
     done = false;
     loading = false;
@@ -384,6 +390,8 @@ function switchDirectory(dir) {
 
     // Update heading text
     mainHeadingName.innerHTML = dir === "gallery" ? "Gallery" : "Uploads";
+    currentPathEl.style.display = "none";
+    currentPathEl.textContent = "";
 
     updateActiveFolderButton(dir); // Update active folder button
 }
@@ -399,10 +407,13 @@ galleryBtn.addEventListener("click", () => switchDirectory("gallery"));
 uploadsBtn.addEventListener("click", () => switchDirectory("uploads"));
 archivesBtn.addEventListener("click", async () => {
     currentDir = "archives"; // Switch to archives directory
+    currentSubpath = "";
     gallery.style.display = "none"; // Hide gallery
     dropArea.style.display = "none"; // Hide upload control
     archivesContainer.style.display = "block"; // Show archives container
     loadingText.style.display = "none"; // Ensure loading text is hidden
+
+    document.getElementById("dir-panel").style.display = "none";
 
     try {
         const response = await fetch(`/archives?sort_by=${sortBy.value}&sort_dir=${sortDir.value}`);
@@ -416,6 +427,8 @@ archivesBtn.addEventListener("click", async () => {
 
     updateActiveFolderButton("archives");
     mainHeadingName.innerHTML = "Archives"; // Update heading name
+    currentPathEl.style.display = "none";
+    currentPathEl.textContent = "";
 });
 
 function populateArchives(data) {
@@ -559,6 +572,161 @@ sortDir.addEventListener("change", () => {
     }
 });
 
+function renderTreeNode(node, depth, navDir) {
+    const item = document.createElement("div");
+
+    const row = document.createElement("div");
+    row.className = "dir-item" + (node.path === currentSubpath && navDir === currentDir ? " active" : "");
+    row.style.paddingLeft = `${0.4 + depth * 1.2}em`;
+
+    if (node.children && node.children.length > 0) {
+        const toggle = document.createElement("i");
+        toggle.className = "fas fa-chevron-down tree-toggle";
+        toggle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const childrenEl = item.querySelector(":scope > .tree-children");
+            const collapsed = childrenEl.style.display === "none";
+            childrenEl.style.display = collapsed ? "" : "none";
+            toggle.className = (collapsed ? "fas fa-chevron-down" : "fas fa-chevron-right") + " tree-toggle";
+        });
+        row.appendChild(toggle);
+    } else {
+        const spacer = document.createElement("span");
+        spacer.className = "tree-toggle-spacer";
+        row.appendChild(spacer);
+    }
+
+    const icon = document.createElement("i");
+    icon.className = (node.path === currentSubpath && navDir === currentDir) ? "fas fa-folder-open" : "fas fa-folder";
+    icon.style.marginRight = "0.4em";
+    row.appendChild(icon);
+
+    const label = document.createElement("span");
+    label.textContent = node.name + "/";
+    row.appendChild(label);
+
+    row.addEventListener("click", () => navigateSubdir(node.path, navDir));
+    item.appendChild(row);
+
+    if (node.children && node.children.length > 0) {
+        const childrenEl = document.createElement("div");
+        childrenEl.className = "tree-children";
+        node.children.forEach(child => childrenEl.appendChild(renderTreeNode(child, depth + 1, navDir)));
+        item.appendChild(childrenEl);
+    }
+
+    return item;
+}
+
+function renderDirTree(dir) {
+    document.getElementById("dir-breadcrumb").textContent = "";
+    document.getElementById("dir-breadcrumb").style.display = "none";
+
+    const dirList = document.getElementById("dir-list");
+    dirList.innerHTML = "";
+
+    // Root node
+    const rootRow = document.createElement("div");
+    rootRow.className = "dir-item" + (currentSubpath === "" && dir === currentDir ? " active" : "");
+    rootRow.style.paddingLeft = "0.4em";
+
+    const rootSpacer = document.createElement("span");
+    rootSpacer.className = "tree-toggle-spacer";
+    rootRow.appendChild(rootSpacer);
+
+    const rootIcon = document.createElement("i");
+    rootIcon.className = (currentSubpath === "" && dir === currentDir) ? "fas fa-folder-open" : "fas fa-folder";
+    rootIcon.style.marginRight = "0.4em";
+    rootRow.appendChild(rootIcon);
+
+    const rootLabel = document.createElement("span");
+    rootLabel.textContent = "/";
+    rootRow.appendChild(rootLabel);
+
+    rootRow.addEventListener("click", () => navigateSubdir("", dir));
+    dirList.appendChild(rootRow);
+
+    const tree = dirTreeCache[dir];
+    if (tree && tree.length > 0) {
+        tree.forEach(node => dirList.appendChild(renderTreeNode(node, 1, dir)));
+    } else if (tree) {
+        const empty = document.createElement("div");
+        empty.className = "dir-empty";
+        empty.textContent = "No subdirectories";
+        dirList.appendChild(empty);
+    }
+}
+
+async function showDirPanel(dir, triggerBtn) {
+    if (dir === "archives") return;
+    if (!dirTreeCache[dir]) {
+        try {
+            const response = await fetch(`/dirs?dir=${dir}`);
+            if (!response.ok) throw new Error("Failed to fetch tree");
+            const data = await response.json();
+            dirTreeCache[dir] = data.tree;
+        } catch (err) {
+            console.error("Failed to load directory tree:", err);
+            return;
+        }
+    }
+    renderDirTree(dir);
+    const panel = document.getElementById("dir-panel");
+    const rect = triggerBtn.getBoundingClientRect();
+    panel.style.left = (rect.right + 8) + "px";
+    panel.style.top = (rect.bottom + 4) + "px";
+    panel.style.display = "block";
+}
+
+function scheduleDirPanelHide() {
+    dirPanelHideTimer = setTimeout(() => {
+        document.getElementById("dir-panel").style.display = "none";
+    }, 200);
+}
+
+function cancelDirPanelHide() {
+    if (dirPanelHideTimer) {
+        clearTimeout(dirPanelHideTimer);
+        dirPanelHideTimer = null;
+    }
+}
+
+galleryBtn.addEventListener("mouseenter", (e) => { cancelDirPanelHide(); showDirPanel("gallery", e.currentTarget); });
+galleryBtn.addEventListener("mouseleave", scheduleDirPanelHide);
+uploadsBtn.addEventListener("mouseenter", (e) => { cancelDirPanelHide(); showDirPanel("uploads", e.currentTarget); });
+uploadsBtn.addEventListener("mouseleave", scheduleDirPanelHide);
+document.getElementById("dir-panel").addEventListener("mouseenter", cancelDirPanelHide);
+document.getElementById("dir-panel").addEventListener("mouseleave", scheduleDirPanelHide);
+
+function navigateSubdir(subpath, navDir = currentDir) {
+    if (navDir !== currentDir) {
+        if (fetchController) fetchController.abort();
+        currentDir = navDir;
+        archivesContainer.style.display = "none";
+        gallery.style.display = "grid";
+        dropArea.style.display = navDir === "uploads" ? "block" : "none";
+        updateActiveFolderButton(navDir);
+    }
+    currentSubpath = subpath;
+    page = 0;
+    done = false;
+    loading = false;
+    gallery.innerHTML = "";
+
+    const label = navDir === "gallery" ? "Gallery" : "Uploads";
+    mainHeadingName.innerHTML = label;
+    if (subpath) {
+        currentPathEl.textContent = subpath;
+        currentPathEl.style.display = "block";
+    } else {
+        currentPathEl.textContent = "";
+        currentPathEl.style.display = "none";
+    }
+
+    renderDirTree(navDir);
+    loadMore();
+}
+
 // Close lightbox on click
 lightbox.addEventListener("click", () => {
     lightbox.style.display = "none";
@@ -618,6 +786,11 @@ async function uploadFiles(files) {
         uploadStatus.innerText = result.message;
 
         if (response.ok) {
+            if (currentSubpath) {
+                navigateSubdir(""); // Uploaded files land in root; navigate there to show them
+                uploadStatus.innerText = result.message;
+                return;
+            }
             for (const file of files) {
                 const fileExt = file.name.split('.').pop().toLowerCase();
                 const isMp4 = fileExt === 'mp4';
@@ -824,14 +997,15 @@ showLastFrameBtn.addEventListener("click", (e) => {
     playAnimationBtn.classList.remove("active");
     showFirstFrameBtn.classList.remove("active");
     showLastFrameBtn.classList.add("active");
-    
-    const srcPath = lightboxImg.src;
-    const filename = srcPath.split('/').pop().split('?')[0]; // Get filename without query params
-    lightboxImg.src = `/static-frame/${filename.replace('.webp', '.png')}?frame=last`; // Show last frame as PNG
+
+    const stored = lightboxImg.dataset.filename || lightboxImg.src.split('/').pop().split('?')[0];
+    const webpFilename = stored.endsWith('.webp') ? stored : stored.replace('.png', '.webp');
+    lightboxImg.src = `/static-frame/${webpFilename.replace('.webp', '.png')}?frame=last`; // Show last frame as PNG
 });
 
 lightboxImg.addEventListener("load", () => {
-    const filename = lightboxImg.src.split("/").pop().split('?')[0]; // Remove query parameters
+    const storedFilename = lightboxImg.dataset.filename;
+    const filename = storedFilename || lightboxImg.src.split("/").pop().split('?')[0]; // Remove query parameters
     const originalFilename = filename.endsWith('.png') ? filename.replace('.png', '.webp') : filename;
     const cacheKey = `${currentDir}/${originalFilename}`;
     const fileMetadata = fileMetadataCache[cacheKey];

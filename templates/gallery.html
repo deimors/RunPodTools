@@ -7,29 +7,36 @@
 </head>
 <body>
     <div id="toolbar">
-        <div class="toolbar-group">
-            <div class="toolbar-group-title">Folders</div>
-            <button id="gallery-btn" class="active" data-label="Gallery"><i class="fas fa-images"></i></button>
-            <button id="uploads-btn" data-label="Uploads"><i class="fas fa-upload"></i></button>
-            <button id="archives-btn" data-label="Archives"><i class="fas fa-file-archive"></i></button>
+        <div id="toolbar-icons">
+            <div class="toolbar-group">
+                <div class="toolbar-group-title">Folders</div>
+                <button id="gallery-btn" class="active" data-label="Gallery"><i class="fas fa-images"></i></button>
+                <button id="uploads-btn" data-label="Uploads"><i class="fas fa-upload"></i></button>
+                <button id="archives-btn" data-label="Archives"><i class="fas fa-file-archive"></i></button>
+            </div>
+            <div class="toolbar-group">
+                <div class="toolbar-group-title">Select</div>
+                <button id="select-all-btn" data-label="Select All"><i class="fas fa-check-square"></i></button>
+                <button id="clear-selection-btn" data-label="Clear Selection"><i class="fas fa-times-circle"></i></button>
+            </div>
+            <div class="toolbar-group">
+                <div class="toolbar-group-title">Actions</div>
+                <button id="zip-selected-btn" data-label="Zip Selected"><i class="fas fa-file-zipper"></i></button>
+                <button id="delete-selected-btn" data-label="Delete Selected"><i class="fas fa-trash"></i></button>
+                <button id="reload-btn" data-label="Reload"><i class="fas fa-sync-alt"></i></button>
+            </div>
         </div>
-        <div class="toolbar-group">
-            <div class="toolbar-group-title">Select</div>
-            <button id="select-all-btn" data-label="Select All"><i class="fas fa-check-square"></i></button>
-            <button id="clear-selection-btn" data-label="Clear Selection"><i class="fas fa-times-circle"></i></button>
-        </div>
-        <div class="toolbar-group">
-            <div class="toolbar-group-title">Actions</div>
-            <button id="zip-selected-btn" data-label="Zip Selected"><i class="fas fa-file-zipper"></i></button>
-            <button id="delete-selected-btn" data-label="Delete Selected"><i class="fas fa-trash"></i></button>
-            <button id="reload-btn" data-label="Reload"><i class="fas fa-sync-alt"></i></button>
+        <div id="dir-panel">
+            <div id="dir-breadcrumb"></div>
+            <div id="dir-list"></div>
         </div>
     </div>
     <div id="main-content">
         <div id="main-heading">
-            <h1 id="main-heading-name">
-                Gallery
-            </h1>
+            <div id="heading-left">
+                <h1 id="main-heading-name">Gallery</h1>
+                <div id="current-path"></div>
+            </div>
             <div id="sort-controls">
                 <label for="sort-by">Sort By:</label>
                 <select id="sort-by">
