@@ -629,7 +629,7 @@ function renderDirTree(dir) {
 
     // Root node
     const rootRow = document.createElement("div");
-    rootRow.className = "dir-item" + (currentSubpath === "" && dir === currentDir ? " active" : "");
+    rootRow.className = "dir-item" + (dir !== currentDir || currentSubpath === "" ? " active" : "");
     rootRow.style.paddingLeft = "0.4em";
 
     const rootSpacer = document.createElement("span");
@@ -656,6 +656,34 @@ function renderDirTree(dir) {
         empty.className = "dir-empty";
         empty.textContent = "No subdirectories";
         dirList.appendChild(empty);
+    }
+
+    // Align new-folder button with the depth where the folder would be created
+    const effectiveSubpath = (dir === currentDir) ? currentSubpath : "";
+    const depth = effectiveSubpath ? effectiveSubpath.split('/').length : 0;
+    const addRow = document.createElement("div");
+    addRow.className = "new-dir-row";
+    addRow.style.paddingLeft = `${0.4 + (depth + 1) * 1.2}em`;
+    const addSpacer = document.createElement("span");
+    addSpacer.className = "tree-toggle-spacer";
+    addRow.appendChild(addSpacer);
+    addRow.appendChild(newDirBtn);
+    addRow.appendChild(newDirLabel);
+    addRow.appendChild(newDirInput);
+
+    // Insert addRow as a child of the active directory node, not always at the bottom
+    const activeItem = dirList.querySelector(".dir-item.active");
+    if (!activeItem || effectiveSubpath === "") {
+        dirList.appendChild(addRow);
+    } else {
+        const itemWrapper = activeItem.parentElement;
+        let childrenEl = itemWrapper.querySelector(":scope > .tree-children");
+        if (!childrenEl) {
+            childrenEl = document.createElement("div");
+            childrenEl.className = "tree-children";
+            itemWrapper.appendChild(childrenEl);
+        }
+        childrenEl.appendChild(addRow);
     }
 }
 
@@ -710,13 +738,24 @@ uploadsBtn.addEventListener("mouseleave", scheduleDirPanelHide);
 document.getElementById("dir-panel").addEventListener("mouseenter", cancelDirPanelHide);
 document.getElementById("dir-panel").addEventListener("mouseleave", scheduleDirPanelHide);
 
-const newDirBtn = document.getElementById("new-dir-btn");
-const newDirInput = document.getElementById("new-dir-input");
+const newDirBtn = document.createElement("button");
+newDirBtn.id = "new-dir-btn";
+newDirBtn.innerHTML = `<i class="fas fa-folder-plus"></i>`;
+
+const newDirLabel = document.createElement("span");
+newDirLabel.id = "new-dir-label";
+newDirLabel.textContent = "New Folder";
+
+const newDirInput = document.createElement("input");
+newDirInput.type = "text";
+newDirInput.id = "new-dir-input";
+newDirInput.placeholder = "Folder name";
 
 newDirBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     newDirInput.classList.remove("error");
     newDirInput.value = "";
+    newDirLabel.style.display = "none";
     newDirInput.style.display = "block";
     newDirInput.focus();
 });
@@ -725,6 +764,7 @@ async function submitNewDir() {
     const name = newDirInput.value.trim();
     if (!name) {
         newDirInput.style.display = "none";
+        newDirLabel.style.display = "";
         newDirInput.classList.remove("error");
         return;
     }
@@ -737,6 +777,7 @@ async function submitNewDir() {
         });
         if (response.ok) {
             newDirInput.style.display = "none";
+            newDirLabel.style.display = "";
             newDirInput.classList.remove("error");
             delete dirTreeCache[panelDir];
             const res = await fetch(`/dirs?dir=${panelDir}`);
@@ -756,7 +797,7 @@ async function submitNewDir() {
 
 newDirInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); submitNewDir(); }
-    if (e.key === "Escape") { newDirInput.style.display = "none"; newDirInput.classList.remove("error"); }
+    if (e.key === "Escape") { newDirInput.style.display = "none"; newDirLabel.style.display = ""; newDirInput.classList.remove("error"); }
 });
 newDirInput.addEventListener("blur", submitNewDir);
 
