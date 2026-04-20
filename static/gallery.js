@@ -332,7 +332,7 @@ async function loadMore() {
             const fileExt = fileName.split('.').pop().toLowerCase();
             const isMp4 = fileExt === 'mp4';
             const isWebP = fileExt === 'webp';
-            const filePath = isWebP ? `/static-frame/${fileName}` : `/${currentDir}/${fileName}`;
+            const filePath = isWebP ? `/static-frame/${currentDir}/${fileName}` : `/${currentDir}/${fileName}`;
             const animatedPath = isWebP ? `/${currentDir}/${fileName}` : null;
             const fileDuration = (isWebP || isMp4) ? file.duration_seconds : null;
 
@@ -787,6 +787,10 @@ async function uploadFiles(files) {
     for (const file of files) {
         formData.append('file', file);
     }
+    const uploadSubpath = (currentDir === 'uploads' && currentSubpath) ? currentSubpath : '';
+    if (uploadSubpath) {
+        formData.append('subdir', uploadSubpath);
+    }
     try {
         const response = await fetch('/upload', {
             method: 'POST',
@@ -796,20 +800,16 @@ async function uploadFiles(files) {
         uploadStatus.innerText = result.message;
 
         if (response.ok) {
-            if (currentSubpath) {
-                navigateSubdir(""); // Uploaded files land in root; navigate there to show them
-                uploadStatus.innerText = result.message;
-                return;
-            }
             for (const file of files) {
                 const fileExt = file.name.split('.').pop().toLowerCase();
                 const isMp4 = fileExt === 'mp4';
                 const isWebP = fileExt === 'webp';
-                const filePath = `/uploads/${file.name}`;
-                const animatedPath = isWebP ? `/uploads/${file.name}` : null;
+                const rawPath = `/uploads/${uploadSubpath ? uploadSubpath + '/' : ''}${file.name}`;
+                const filePath = isWebP ? `/static-frame/uploads/${uploadSubpath ? uploadSubpath + '/' : ''}${file.name}` : rawPath;
+                const animatedPath = isWebP ? rawPath : null;
 
-                const uploadDate = new Date(file.lastModified || Date.now());
-                const sortValue = getSortLabel(sortBy.value, file);
+                const uploadDate = new Date();
+                const sortValue = getSortLabel(sortBy.value, { ...file, last_modified: uploadDate.toISOString() });
 
                 const container = isMp4
                     ? createVideoElement(file.name, sortValue)
@@ -1010,7 +1010,7 @@ showLastFrameBtn.addEventListener("click", (e) => {
 
     const stored = lightboxImg.dataset.filename || lightboxImg.src.split('/').pop().split('?')[0];
     const webpFilename = stored.endsWith('.webp') ? stored : stored.replace('.png', '.webp');
-    lightboxImg.src = `/static-frame/${webpFilename.replace('.webp', '.png')}?frame=last`; // Show last frame as PNG
+    lightboxImg.src = `/static-frame/${currentDir}/${webpFilename.replace('.webp', '.png')}?frame=last`; // Show last frame as PNG
 });
 
 lightboxImg.addEventListener("load", () => {
@@ -1022,7 +1022,7 @@ lightboxImg.addEventListener("load", () => {
 
     if (fileMetadata) {
         // Set the dataset values for the lightbox image
-        lightboxImg.dataset.static = `/static-frame/${originalFilename}?frame=first`;
+        lightboxImg.dataset.static = `/static-frame/${currentDir}/${originalFilename}?frame=first`;
         lightboxImg.dataset.animated = `/${currentDir}/${originalFilename}`;
         
         const resolution = fileMetadata.resolution ? `${fileMetadata.resolution}` : "";

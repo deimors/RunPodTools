@@ -46,8 +46,8 @@ app = Flask(__name__)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route("/static-frame/<path:filename>")
-def static_frame(filename):
+@app.route("/static-frame/<string:dir_name>/<path:filename>")
+def static_frame(dir_name, filename):
     """Serve a specific frame of an animated webp as a static image"""
     frame_type = request.args.get("frame", "first")
     cache_bust = request.args.get("bust", "")
@@ -55,16 +55,20 @@ def static_frame(filename):
     if filename.endswith('.png'):
         filename = filename.replace('.png', '.webp')
     
-    if not gallery_source.file_exists(filename) or not filename.lower().endswith('.webp'):
+    if not filename.lower().endswith('.webp'):
         abort(404)
-    
+
+    source = get_source_for_directory(dir_name)
+    if not source.file_exists(filename):
+        abort(404)
+
     cache_key = f"{filename}_{frame_type}_{cache_bust}"
     
     if cache_key in static_frame_cache:
         return Response(static_frame_cache[cache_key], mimetype='image/png')
     
     try:
-        full_path = gallery_source.get_file_path(filename)
+        full_path = source.get_file_path(filename)
         with Image.open(full_path) as img:
             if frame_type == "last":
                 img.seek(img.n_frames - 1)
@@ -80,7 +84,7 @@ def static_frame(filename):
             return Response(frame_data, mimetype='image/png')
     except Exception as e:
         print(f"Error processing {filename}: {e}")
-        return send_from_directory(gallery_dir, filename)
+        return send_from_directory(source.directory, filename)
 
 @app.route("/video-thumbnail/<dir>/<path:filename>")
 def video_thumbnail(dir, filename):
@@ -187,10 +191,11 @@ def upload_file():
         return jsonify({"message": "No selected file"}), 400
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        if uploads_source.save_file(filename, file):
+        subdir = request.form.get("subdir", "")
+        if uploads_source.save_file(filename, file, subdir):
             return jsonify({"message": f"File '{filename}' uploaded successfully"}), 200
         else:
-            return jsonify({"message": "Failed to save file"}), 500
+            return jsonify({"message": "Invalid upload directory"}), 400
     return jsonify({"message": "Invalid file type"}), 400
 
 @app.route("/archives")

@@ -137,10 +137,14 @@ class FilesystemGallerySource(GallerySource):
         file_path = self.get_file_path(filename)
         return os.path.getmtime(file_path)
     
-    def save_file(self, filename: str, file_data) -> bool:
-        """Save a file to the source."""
+    def save_file(self, filename: str, file_data, subdir: str = "") -> bool:
+        """Save a file to the source, optionally into a subdirectory."""
+        target_dir = self._resolve_subpath(subdir)
+        if target_dir is None:
+            return False
         try:
-            file_path = self.get_file_path(filename)
+            os.makedirs(target_dir, exist_ok=True)
+            file_path = os.path.join(target_dir, filename)
             file_data.save(file_path)
             return True
         except Exception as e:
