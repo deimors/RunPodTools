@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from flask import Flask, send_from_directory, jsonify, render_template, abort, request, Response, send_file
 from werkzeug.utils import secure_filename
 import io
@@ -139,6 +140,26 @@ def list_dirs():
     source = get_source_for_directory(dir_name)
     tree = source.list_dir_tree()
     return jsonify({"tree": tree})
+
+_INVALID_DIR_CHARS = re.compile(r'[/\\:*?"<>|]')
+
+@app.route("/mkdir", methods=["POST"])
+def make_dir():
+    data = request.get_json(force=True, silent=True) or {}
+    dir_name = data.get("dir", "")
+    subdir = data.get("subdir", "")
+    name = (data.get("name", "") or "").strip()
+
+    if dir_name not in ("gallery", "uploads"):
+        return jsonify({"message": "Invalid directory"}), 400
+    if not name or name in (".", "..") or _INVALID_DIR_CHARS.search(name):
+        return jsonify({"message": "Invalid directory name"}), 400
+
+    source = get_source_for_directory(dir_name)
+    if not source.create_subdir(subdir, name):
+        return jsonify({"message": "Failed to create directory"}), 500
+
+    return jsonify({"message": "Directory created"}), 200
 
 @app.route("/images")
 def list_images():

@@ -8,6 +8,7 @@ let fetchController = null;
 const dirTreeCache = {};
 let dirPanelHideTimer = null;
 let activeDirBtn = null;
+let panelDir = null;
 
 const gallery = document.getElementById("gallery");
 const archivesContainer = document.getElementById("archives-container");
@@ -660,6 +661,7 @@ function renderDirTree(dir) {
 
 async function showDirPanel(dir, triggerBtn) {
     if (dir === "archives") return;
+    panelDir = dir;
     if (!dirTreeCache[dir]) {
         try {
             const response = await fetch(`/dirs?dir=${dir}`);
@@ -707,6 +709,56 @@ uploadsBtn.addEventListener("mouseenter", (e) => { cancelDirPanelHide(); showDir
 uploadsBtn.addEventListener("mouseleave", scheduleDirPanelHide);
 document.getElementById("dir-panel").addEventListener("mouseenter", cancelDirPanelHide);
 document.getElementById("dir-panel").addEventListener("mouseleave", scheduleDirPanelHide);
+
+const newDirBtn = document.getElementById("new-dir-btn");
+const newDirInput = document.getElementById("new-dir-input");
+
+newDirBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    newDirInput.classList.remove("error");
+    newDirInput.value = "";
+    newDirInput.style.display = "block";
+    newDirInput.focus();
+});
+
+async function submitNewDir() {
+    const name = newDirInput.value.trim();
+    if (!name) {
+        newDirInput.style.display = "none";
+        newDirInput.classList.remove("error");
+        return;
+    }
+    const parentSubdir = panelDir === currentDir ? currentSubpath : "";
+    try {
+        const response = await fetch("/mkdir", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dir: panelDir, subdir: parentSubdir, name })
+        });
+        if (response.ok) {
+            newDirInput.style.display = "none";
+            newDirInput.classList.remove("error");
+            delete dirTreeCache[panelDir];
+            const res = await fetch(`/dirs?dir=${panelDir}`);
+            const data = await res.json();
+            dirTreeCache[panelDir] = data.tree;
+            renderDirTree(panelDir);
+        } else {
+            newDirInput.classList.add("error");
+            newDirInput.focus();
+        }
+    } catch (err) {
+        console.error("Failed to create directory:", err);
+        newDirInput.classList.add("error");
+        newDirInput.focus();
+    }
+}
+
+newDirInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); submitNewDir(); }
+    if (e.key === "Escape") { newDirInput.style.display = "none"; newDirInput.classList.remove("error"); }
+});
+newDirInput.addEventListener("blur", submitNewDir);
 
 function navigateSubdir(subpath, navDir = currentDir) {
     if (navDir !== currentDir) {

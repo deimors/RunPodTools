@@ -163,6 +163,22 @@ class FilesystemGallerySource(GallerySource):
             print(f"Error deleting file {filename}: {e}")
             return False
 
+    def create_subdir(self, parent_subpath: str, name: str) -> bool:
+        """Create a new subdirectory named `name` inside parent_subpath."""
+        parent = self._resolve_subpath(parent_subpath)
+        if parent is None:
+            return False
+        try:
+            new_dir = os.path.join(parent, name)
+            # Verify the new path is exactly one level inside parent
+            if os.path.normpath(os.path.dirname(new_dir)) != os.path.normpath(parent):
+                return False
+            os.makedirs(new_dir, exist_ok=True)
+            return True
+        except Exception as e:
+            print(f"Error creating directory {name}: {e}")
+            return False
+
     def _resolve_subpath(self, subpath: str) -> Optional[str]:
         """Resolve subpath within directory, returning None if path traversal is detected."""
         if not subpath:
