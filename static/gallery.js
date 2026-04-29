@@ -260,20 +260,14 @@ function showLightboxRating(filename, currentRating = 0) {
             const newRating = (currentRating === i) ? 0 : i;
             
             if (await setRating(filename, newRating)) {
-                // Check if item still matches filter
-                const filterValue = ratingFilter.value;
-                const shouldRemove = filterValue !== "all" && newRating !== parseInt(filterValue);
+                // Update lightbox display
+                showLightboxRating(filename, newRating);
+                currentRating = newRating;
                 
-                if (shouldRemove) {
-                    // Close lightbox first
-                    lightbox.style.display = "none";
-                    lightboxImg.src = "";
-                    lightboxVideo.pause();
-                    lightboxVideo.src = "";
-                    lightboxInfo.innerText = "";
-                    lightboxRating.innerHTML = "";
-                    
-                    // Find and remove the container from gallery
+                // Check if item still matches filter - remove from gallery if not
+                const filterValue = ratingFilter.value;
+                if (filterValue !== "all" && newRating !== parseInt(filterValue)) {
+                    // Remove from gallery but keep lightbox open
                     const containers = document.querySelectorAll('.gallery .image-container');
                     containers.forEach(container => {
                         const video = container.querySelector('video');
@@ -285,10 +279,6 @@ function showLightboxRating(filename, currentRating = 0) {
                         }
                     });
                 } else {
-                    // Update lightbox display
-                    showLightboxRating(filename, newRating);
-                    currentRating = newRating;
-                    
                     // Update gallery thumbnail rating if visible
                     const containers = document.querySelectorAll('.gallery .image-container');
                     containers.forEach(container => {
