@@ -555,13 +555,7 @@ function createVideoElement(fileName, sortValue = null, duration = null, rating 
         document.querySelectorAll(".animation-control").forEach(btn => btn.classList.add("hidden"));
 
         if (fileMetadata) {
-            const resolution = fileMetadata.resolution ? fileMetadata.resolution : "";
-            const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "";
-            const frameRate = fileMetadata.frame_rate ? `${fileMetadata.frame_rate.toFixed(2)} fps` : "";
-            const fileSize = fileMetadata.size_bytes ? formatFileSize(fileMetadata.size_bytes) : "";
-            const lastModified = fileMetadata.last_modified ? new Date(fileMetadata.last_modified).toLocaleString() : "";
-            lightboxInfo.innerText = [fileName, resolution, duration, frameRate, fileSize, lastModified]
-                .filter(Boolean).join(" | ");
+            lightboxInfo.innerText = fileName;
             showLightboxRating(fileName, fileMetadata.rating || 0);
         } else {
             lightboxInfo.innerText = fileName;
@@ -1562,18 +1556,7 @@ lightboxImg.addEventListener("load", () => {
         lightboxImg.dataset.static = `/static-frame/${currentDir}/${originalFilename}?frame=first`;
         lightboxImg.dataset.animated = `/${currentDir}/${originalFilename}`;
         
-        const resolution = fileMetadata.resolution ? `${fileMetadata.resolution}` : "";
-        const frames = fileMetadata.frames ? `${fileMetadata.frames} frames` : "";
-        const duration = fileMetadata.duration_seconds ? `${fileMetadata.duration_seconds.toFixed(2)}s` : "";
-        const frameRate = fileMetadata.frame_rate ? `${fileMetadata.frame_rate.toFixed(2)} fps` : "";
-        const fileSize = fileMetadata.size_bytes ? formatFileSize(fileMetadata.size_bytes) : "";
-        const lastModified = fileMetadata.last_modified ? new Date(fileMetadata.last_modified).toLocaleString() : "";
-
-        lightboxInfo.innerText = [originalFilename, resolution, frames, duration, frameRate, fileSize, lastModified]
-            .filter(Boolean) // Remove empty strings
-            .join(" | ");
-
-        // Show rating
+        lightboxInfo.innerText = originalFilename;
         showLightboxRating(originalFilename, fileMetadata.rating || 0);
 
         // Show animation controls only if the file is a WebP animation with frames
