@@ -219,6 +219,37 @@ def upload_file():
             return jsonify({"message": "Invalid upload directory"}), 400
     return jsonify({"message": "Invalid file type"}), 400
 
+@app.route("/rate", methods=["POST"])
+def rate_file():
+    """Set the rating for a file."""
+    data = request.json
+    dir_name = data.get("dir", "gallery")
+    filename = data.get("filename", "")
+    rating = data.get("rating", 0)
+    
+    if not filename:
+        return jsonify({"success": False, "message": "No filename provided"}), 400
+    
+    # Validate rating value
+    if not isinstance(rating, int) or not (0 <= rating <= 3):
+        return jsonify({"success": False, "message": "Rating must be an integer between 0 and 3"}), 400
+    
+    source = get_source_for_directory(dir_name)
+    
+    # Check if source has ratings manager
+    if not hasattr(source, 'ratings_manager') or source.ratings_manager is None:
+        return jsonify({"success": False, "message": "Ratings not supported for this directory"}), 400
+    
+    # Verify file exists
+    if not source.file_exists(filename):
+        return jsonify({"success": False, "message": "File not found"}), 404
+    
+    # Set the rating
+    if source.ratings_manager.set_rating(filename, rating):
+        return jsonify({"success": True, "rating": rating}), 200
+    else:
+        return jsonify({"success": False, "message": "Failed to save rating"}), 500
+
 @app.route("/archives")
 def list_archives():
     """List all .zip files in the archive directory, including their contents."""

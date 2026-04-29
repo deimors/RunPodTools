@@ -5,6 +5,8 @@ from datetime import datetime
 from webp import extract_webp_animation_metadata
 from images import get_image_metadata
 from mp4 import extract_mp4_metadata
+from ratings import RatingsManager
+from ratings import RatingsManager
 
 class GallerySource(ABC):
     """Abstract base class for gallery sources."""
@@ -61,6 +63,18 @@ class FilesystemGallerySource(GallerySource):
         # Validate directory
         if not os.path.isdir(self.directory):
             raise ValueError(f"'{self.directory}' is not a valid directory")
+        
+        # Initialize ratings manager (skip for archive directories)
+        if allowed_extensions and 'zip' in allowed_extensions:
+            self.ratings_manager = None  # Archives don't need ratings
+        else:
+            self.ratings_manager = RatingsManager(self.directory)
+        
+        # Initialize ratings manager (skip for archive directories)
+        if allowed_extensions and 'zip' in allowed_extensions:
+            self.ratings_manager = None  # Archives don't need ratings
+        else:
+            self.ratings_manager = RatingsManager(self.directory)
     
     def list_files(self) -> List[str]:
         """List all files in the source, recursively."""
@@ -89,7 +103,7 @@ class FilesystemGallerySource(GallerySource):
         if filename.lower().endswith(".webp"):
             metadata = extract_webp_animation_metadata(file_path)
             if isinstance(metadata, dict):
-                return {
+                result = {
                     "name": filename,
                     "size_bytes": metadata["file_size"],
                     "resolution": f"{metadata['width']}x{metadata['height']}",
@@ -98,23 +112,35 @@ class FilesystemGallerySource(GallerySource):
                     "frame_rate": metadata["frame_rate"],
                     "last_modified": last_modified
                 }
+                if self.ratings_manager:
+                    result["rating"] = self.ratings_manager.get_rating(filename)
+                return result
             else:
-                return {"name": filename, "error": metadata, "last_modified": last_modified}
+                result = {"name": filename, "error": metadata, "last_modified": last_modified}
+                if self.ratings_manager:
+                    result["rating"] = self.ratings_manager.get_rating(filename)
+                return result
         elif filename.lower().endswith((".png", ".jpg", ".jpeg")):
             metadata = get_image_metadata(file_path)
             if isinstance(metadata, dict):
-                return {
+                result = {
                     "name": filename,
                     "size_bytes": metadata["file_size"],
                     "resolution": f"{metadata['width']}x{metadata['height']}",
                     "last_modified": last_modified
                 }
+                if self.ratings_manager:
+                    result["rating"] = self.ratings_manager.get_rating(filename)
+                return result
             else:
-                return {"name": filename, "error": metadata, "last_modified": last_modified}
+                result = {"name": filename, "error": metadata, "last_modified": last_modified}
+                if self.ratings_manager:
+                    result["rating"] = self.ratings_manager.get_rating(filename)
+                return result
         elif filename.lower().endswith(".mp4"):
             metadata = extract_mp4_metadata(file_path)
             if isinstance(metadata, dict):
-                return {
+                result = {
                     "name": filename,
                     "size_bytes": metadata["file_size"],
                     "resolution": f"{metadata['width']}x{metadata['height']}",
@@ -122,10 +148,19 @@ class FilesystemGallerySource(GallerySource):
                     "frame_rate": metadata["frame_rate"],
                     "last_modified": last_modified
                 }
+                if self.ratings_manager:
+                    result["rating"] = self.ratings_manager.get_rating(filename)
+                return result
             else:
-                return {"name": filename, "error": metadata, "last_modified": last_modified}
+                result = {"name": filename, "error": metadata, "last_modified": last_modified}
+                if self.ratings_manager:
+                    result["rating"] = self.ratings_manager.get_rating(filename)
+                return result
         else:
-            return {"name": filename, "last_modified": last_modified}
+            result = {"name": filename, "last_modified": last_modified}
+            if self.ratings_manager:
+                result["rating"] = self.ratings_manager.get_rating(filename)
+            return result
     
     def get_file_size(self, filename: str) -> int:
         """Get the size of a file in bytes."""
@@ -157,6 +192,9 @@ class FilesystemGallerySource(GallerySource):
             file_path = self.get_file_path(filename)
             if os.path.isfile(file_path):
                 os.remove(file_path)
+                # Clean up rating when file is deleted
+                if self.ratings_manager:
+                    self.ratings_manager.delete_rating(filename)
                 return True
             return False
         except Exception as e:

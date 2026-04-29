@@ -39,6 +39,7 @@ const zipBtn = document.getElementById("zip-btn"); // Ensure consistent usage of
 const modalProgress = document.getElementById("modal-progress");
 const downloadBtn = document.getElementById("download-btn");
 const lightboxInfo = document.getElementById("lightbox-info");
+const lightboxRating = document.getElementById("lightbox-rating");
 const sortBy = document.getElementById("sort-by");
 const sortDir = document.getElementById("sort-dir");
 const loadingText = document.getElementById("loading"); // Extracted loading text element
@@ -112,7 +113,131 @@ const debouncedMouseEnter = debounce((img, loadingIndicator) => {
     }
 }, 500);
 
-function createVideoElement(fileName, sortValue = null, duration = null) {
+// ─── Rating Functions ──────────────────────────────────────
+
+async function setRating(filename, rating) {
+    try {
+        const response = await fetch('/rate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                dir: currentDir,
+                filename: filename,
+                rating: rating
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Update cache
+            const cacheKey = `${currentDir}/${filename}`;
+            if (fileMetadataCache[cacheKey]) {
+                fileMetadataCache[cacheKey].rating = rating;
+            }
+            return true;
+        } else {
+            console.error('Failed to set rating:', data.message);
+            return false;
+        }
+    } catch (err) {
+        console.error('Error setting rating:', err);
+        return false;
+    }
+}
+
+function createRatingWidget(filename, currentRating = 0) {
+    const ratingContainer = document.createElement('div');
+    ratingContainer.className = 'rating-container';
+    if (currentRating > 0) {
+        ratingContainer.classList.add('rated');
+    }
+
+    for (let i = 1; i <= 3; i++) {
+        const star = document.createElement('span');
+        star.className = 'star';
+        star.innerHTML = '★';
+        if (i <= currentRating) {
+            star.classList.add('filled');
+        }
+        
+        star.addEventListener('click', async (e) => {
+            e.stopPropagation(); // Prevent image click/lightbox
+            
+            // Toggle rating: if clicking the current rating, set to 0 (unrated)
+            const newRating = (currentRating === i) ? 0 : i;
+            
+            if (await setRating(filename, newRating)) {
+                // Update UI
+                updateRatingDisplay(ratingContainer, newRating);
+                currentRating = newRating;
+            }
+        });
+        
+        ratingContainer.appendChild(star);
+    }
+
+    return ratingContainer;
+}
+
+function updateRatingDisplay(ratingContainer, rating) {
+    const stars = ratingContainer.querySelectorAll('.star');
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.classList.add('filled');
+        } else {
+            star.classList.remove('filled');
+        }
+    });
+    
+    // Update visibility class
+    if (rating > 0) {
+        ratingContainer.classList.add('rated');
+    } else {
+        ratingContainer.classList.remove('rated');
+    }
+}
+
+function showLightboxRating(filename, currentRating = 0) {
+    lightboxRating.innerHTML = ''; // Clear previous rating
+    
+    for (let i = 1; i <= 3; i++) {
+        const star = document.createElement('span');
+        star.className = 'star';
+        star.innerHTML = '★';
+        if (i <= currentRating) {
+            star.classList.add('filled');
+        }
+        
+        star.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            
+            // Toggle rating: if clicking the current rating, set to 0 (unrated)
+            const newRating = (currentRating === i) ? 0 : i;
+            
+            if (await setRating(filename, newRating)) {
+                // Update lightbox display
+                showLightboxRating(filename, newRating);
+                currentRating = newRating;
+                
+                // Update gallery thumbnail rating if visible
+                const containers = document.querySelectorAll('.gallery .image-container');
+                containers.forEach(container => {
+                    const ratingWidget = container.querySelector('.rating-container');
+                    const video = container.querySelector('video');
+                    const img = container.querySelector('img');
+                    const containerFilename = video?.dataset.filename || img?.alt;
+                    
+                    if (containerFilename === filename && ratingWidget) {
+                        updateRatingDisplay(ratingWidget, newRating);
+                    }
+                });
+            }
+        });
+        
+        lightboxRating.appendChild(star);
+    }
+}
+
+function createVideoElement(fileName, sortValue = null, duration = null, rating = 0) {
     const container = document.createElement("div");
     container.className = "image-container";
 
@@ -199,8 +324,10 @@ function createVideoElement(fileName, sortValue = null, duration = null) {
             const lastModified = fileMetadata.last_modified ? new Date(fileMetadata.last_modified).toLocaleString() : "";
             lightboxInfo.innerText = [fileName, resolution, duration, frameRate, fileSize, lastModified]
                 .filter(Boolean).join(" | ");
+            showLightboxRating(fileName, fileMetadata.rating || 0);
         } else {
             lightboxInfo.innerText = fileName;
+            showLightboxRating(fileName, 0);
         }
 
         lightbox.style.display = "flex";
@@ -209,10 +336,15 @@ function createVideoElement(fileName, sortValue = null, duration = null) {
     imageWrapper.appendChild(video);
     container.appendChild(imageWrapper);
     container.appendChild(checkbox);
+    
+    // Add rating widget
+    const ratingWidget = createRatingWidget(fileName, rating);
+    imageWrapper.appendChild(ratingWidget);
+    
     return container;
 }
 
-function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null) {
+function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null, rating = 0) {
     const container = document.createElement("div");
     container.className = "image-container";
 
@@ -284,6 +416,13 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
         if (e.target.className === "checkbox") return;
         lightboxImg.dataset.filename = fileName;
         lightboxImg.src = isWebP && animatedPath ? img.dataset.animated : img.src;
+        
+        // Get rating from cache
+        const cacheKey = `${currentDir}/${fileName}`;
+        const fileMetadata = fileMetadataCache[cacheKey];
+        const currentRating = fileMetadata?.rating || 0;
+        showLightboxRating(fileName, currentRating);
+        
         lightbox.style.display = "flex";
     });
 
@@ -291,6 +430,11 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
     imageWrapper.appendChild(loadingIndicator);
     container.appendChild(imageWrapper);
     container.appendChild(checkbox);
+    
+    // Add rating widget
+    const ratingWidget = createRatingWidget(fileName, rating);
+    imageWrapper.appendChild(ratingWidget);
+    
     return container;
 }
 
@@ -341,10 +485,11 @@ async function loadMore() {
             fileMetadataCache[cacheKey] = file;
 
             const sortValue = getSortLabel(sortBy.value, file);
+            const rating = file.rating || 0;
 
             const container = isMp4
-                ? createVideoElement(fileName, sortValue, fileDuration)
-                : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration);
+                ? createVideoElement(fileName, sortValue, fileDuration, rating)
+                : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration, rating);
             container.dataset.sortDate = new Date(file.last_modified).toISOString();
             container.dataset.sortFilename = fileName.toLowerCase();
             container.dataset.sortSize = file.size_bytes || 0;
@@ -839,6 +984,7 @@ lightbox.addEventListener("click", () => {
     lightboxVideo.src = "";
     lightboxVideo.style.display = "none";
     lightboxInfo.innerText = ""; // Clear info text
+    lightboxRating.innerHTML = ""; // Clear rating
 });
 
 // Initial load
@@ -1129,6 +1275,9 @@ lightboxImg.addEventListener("load", () => {
             .filter(Boolean) // Remove empty strings
             .join(" | ");
 
+        // Show rating
+        showLightboxRating(originalFilename, fileMetadata.rating || 0);
+
         // Show controls only if the file is a WebP animation with frames
         const lightboxControls = document.getElementById("lightbox-controls");
         if (fileMetadata.frames && fileMetadata.frames > 0) {
@@ -1138,6 +1287,7 @@ lightboxImg.addEventListener("load", () => {
         }
     } else {
         lightboxInfo.innerText = filename;
+        showLightboxRating(filename, 0);
         document.getElementById("lightbox-controls").style.display = "none"; // Hide controls
     }
 });
