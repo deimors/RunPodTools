@@ -4,6 +4,8 @@ let done = false;
 let currentDir = "gallery"; // Default to gallery directory
 let lastSelectedIndex = -1; // Track the last selected image index
 let currentSubpath = ""; // Track the current subdirectory path
+let lastGallerySubpath = ""; // Track last visited gallery subdirectory
+let lastUploadsSubpath = ""; // Track last visited uploads subdirectory
 let fetchController = null;
 const dirTreeCache = {};
 let dirPanelHideTimer = null;
@@ -592,7 +594,8 @@ function updateActiveFolderButton(dir) {
 function switchDirectory(dir) {
     if (fetchController) fetchController.abort();
     currentDir = dir;
-    currentSubpath = "";
+    // Restore the last visited subpath for this directory
+    currentSubpath = (dir === "gallery") ? lastGallerySubpath : lastUploadsSubpath;
     page = 0;
     done = false;
     loading = false;
@@ -606,8 +609,13 @@ function switchDirectory(dir) {
 
     // Update heading text
     mainHeadingName.innerHTML = dir === "gallery" ? "Gallery" : "Uploads";
-    currentPathEl.style.display = "none";
-    currentPathEl.textContent = "";
+    if (currentSubpath) {
+        currentPathEl.textContent = currentSubpath;
+        currentPathEl.style.display = "block";
+    } else {
+        currentPathEl.style.display = "none";
+        currentPathEl.textContent = "";
+    }
 
     updateActiveFolderButton(dir); // Update active folder button
 }
@@ -1034,6 +1042,12 @@ function navigateSubdir(subpath, navDir = currentDir) {
         ratingFilter.value = "all"; // Reset rating filter when switching directories
     }
     currentSubpath = subpath;
+    // Store the subpath for the current directory
+    if (navDir === "gallery") {
+        lastGallerySubpath = subpath;
+    } else if (navDir === "uploads") {
+        lastUploadsSubpath = subpath;
+    }
     page = 0;
     done = false;
     loading = false;
