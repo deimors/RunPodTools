@@ -168,9 +168,20 @@ def list_images():
     sort_by = request.args.get("sort_by", "date")
     sort_dir = request.args.get("sort_dir", "asc")
     subpath = request.args.get("subpath", "")
+    rating_filter = request.args.get("rating_filter", "all")
     
     source = get_source_for_directory(dir_name)
     all_files = source.list_files_in_dir(subpath)
+    
+    # Filter by rating if specified
+    if rating_filter != "all":
+        try:
+            target_rating = int(rating_filter)
+            if source.ratings_manager:
+                all_files = [f for f in all_files 
+                           if source.ratings_manager.get_rating(f) == target_rating]
+        except (ValueError, TypeError):
+            pass  # Invalid rating filter, ignore
     
     # Sorting logic
     def sort_key(file):

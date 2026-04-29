@@ -42,6 +42,7 @@ const lightboxInfo = document.getElementById("lightbox-info");
 const lightboxRating = document.getElementById("lightbox-rating");
 const sortBy = document.getElementById("sort-by");
 const sortDir = document.getElementById("sort-dir");
+const ratingFilter = document.getElementById("rating-filter");
 const loadingText = document.getElementById("loading"); // Extracted loading text element
 
 const modalSteps = {
@@ -182,6 +183,19 @@ function createRatingWidget(filename, currentRating = 0) {
                 // Update UI
                 updateRatingDisplay(ratingContainer, newRating);
                 currentRating = newRating;
+                
+                // Check if item still matches filter - if not, remove it
+                const filterValue = ratingFilter.value;
+                if (filterValue !== "all") {
+                    const targetRating = parseInt(filterValue);
+                    if (newRating !== targetRating) {
+                        // Find and remove the container from gallery
+                        const container = ratingContainer.closest('.image-container');
+                        if (container) {
+                            container.remove();
+                        }
+                    }
+                }
             }
         });
         
@@ -246,22 +260,48 @@ function showLightboxRating(filename, currentRating = 0) {
             const newRating = (currentRating === i) ? 0 : i;
             
             if (await setRating(filename, newRating)) {
-                // Update lightbox display
-                showLightboxRating(filename, newRating);
-                currentRating = newRating;
+                // Check if item still matches filter
+                const filterValue = ratingFilter.value;
+                const shouldRemove = filterValue !== "all" && newRating !== parseInt(filterValue);
                 
-                // Update gallery thumbnail rating if visible
-                const containers = document.querySelectorAll('.gallery .image-container');
-                containers.forEach(container => {
-                    const ratingWidget = container.querySelector('.rating-container');
-                    const video = container.querySelector('video');
-                    const img = container.querySelector('img');
-                    const containerFilename = video?.dataset.filename || img?.alt;
+                if (shouldRemove) {
+                    // Close lightbox first
+                    lightbox.style.display = "none";
+                    lightboxImg.src = "";
+                    lightboxVideo.pause();
+                    lightboxVideo.src = "";
+                    lightboxInfo.innerText = "";
+                    lightboxRating.innerHTML = "";
                     
-                    if (containerFilename === filename && ratingWidget) {
-                        updateRatingDisplay(ratingWidget, newRating);
-                    }
-                });
+                    // Find and remove the container from gallery
+                    const containers = document.querySelectorAll('.gallery .image-container');
+                    containers.forEach(container => {
+                        const video = container.querySelector('video');
+                        const img = container.querySelector('img');
+                        const containerFilename = video?.dataset.filename || img?.alt;
+                        
+                        if (containerFilename === filename) {
+                            container.remove();
+                        }
+                    });
+                } else {
+                    // Update lightbox display
+                    showLightboxRating(filename, newRating);
+                    currentRating = newRating;
+                    
+                    // Update gallery thumbnail rating if visible
+                    const containers = document.querySelectorAll('.gallery .image-container');
+                    containers.forEach(container => {
+                        const ratingWidget = container.querySelector('.rating-container');
+                        const video = container.querySelector('video');
+                        const img = container.querySelector('img');
+                        const containerFilename = video?.dataset.filename || img?.alt;
+                        
+                        if (containerFilename === filename && ratingWidget) {
+                            updateRatingDisplay(ratingWidget, newRating);
+                        }
+                    });
+                }
             }
         });
         
@@ -498,7 +538,7 @@ async function loadMore() {
 
     try {
         const response = await fetch(
-            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}`,
+            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}&rating_filter=${ratingFilter.value}`,
             { signal: fetchController.signal }
         );
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -570,6 +610,7 @@ function switchDirectory(dir) {
     archivesContainer.style.display = "none"; // Show archives only for "Archives"
     gallery.style.display = "grid"; // Show gallery for "Gallery" and "Uploads"
     dropArea.style.display = dir === "uploads" ? "block" : "none"; // Show drop area only for "Uploads"
+    ratingFilter.value = "all"; // Reset rating filter
 
     loadMore(); // Load new directory contents
 
@@ -754,6 +795,14 @@ sortDir.addEventListener("change", () => {
         reloadArchives(); // Reload archives with updated sort parameters
     } else {
         reloadGallery(); // Reload gallery with updated sort parameters
+    }
+});
+
+ratingFilter.addEventListener("change", () => {
+    if (currentDir === "archives") {
+        return; // Archives don't have ratings
+    } else {
+        reloadGallery(); // Reload gallery with updated filter
     }
 });
 
@@ -992,6 +1041,7 @@ function navigateSubdir(subpath, navDir = currentDir) {
         gallery.style.display = "grid";
         dropArea.style.display = navDir === "uploads" ? "block" : "none";
         updateActiveFolderButton(navDir);
+        ratingFilter.value = "all"; // Reset rating filter when switching directories
     }
     currentSubpath = subpath;
     page = 0;
