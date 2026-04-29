@@ -261,6 +261,190 @@ def rate_file():
     else:
         return jsonify({"success": False, "message": "Failed to save rating"}), 500
 
+@app.route("/metadata/<dir_name>/<path:filename>")
+def get_metadata(dir_name, filename):
+    """Extract and return metadata for a file, including workflow JSON."""
+    import json
+    
+    source = get_source_for_directory(dir_name)
+    
+    if not source.file_exists(filename):
+        return jsonify({"success": False, "message": "File not found"}), 404
+    
+    file_path = source.get_file_path(filename)
+    file_ext = os.path.splitext(filename)[1].lower()
+    metadata = {}
+    
+    def try_parse_json(value):
+        """Try to parse a string as JSON, return original if it fails."""
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except:
+                return value
+        return value
+    
+    def decode_value(value):
+        """Decode bytes to string if needed."""
+        if isinstance(value, bytes):
+            try:
+                return value.decode('utf-8', errors='ignore')
+            except:
+                return str(value)
+        return value
+    
+    try:
+        # Extract metadata based on file type
+        if file_ext in ['.webp', '.png', '.jpg', '.jpeg']:
+            with Image.open(file_path) as img:
+                # Basic image info
+                metadata["_basic"] = {
+                    "Format": img.format,
+                    "Mode": img.mode,
+                    "Size": f"{img.width} × {img.height}"
+                }
+                
+                # Extract PNG info (this is where ComfyUI/InvokeAI store workflow data)
+                if hasattr(img, 'info') and img.info:
+                    # Look for known workflow/generation keys
+                    workflow_keys = ['workflow', 'prompt', 'Workflow', 'Prompt']
+                    parameter_keys = ['parameters', 'Parameters', 'Dream', 'invokeai_metadata', 'sd-metadata']
+                    
+                    for key, value in img.info.items():
+                        decoded_value = decode_value(value)
+                        parsed_value = try_parse_json(decoded_value)
+                        
+                        # Prioritize workflow/generation data
+                        if key in workflow_keys:
+                            metadata[f"🔧 {key}"] = parsed_value
+                        elif key in parameter_keys:
+                            metadata[f"⚙️ {key}"] = parsed_value
+                        else:
+                            # Store other metadata
+                            if "_other" not in metadata:
+                                metadata["_other"] = {}
+                            metadata["_other"][key] = parsed_value
+                
+                # Try to get EXIF data (some tools store data here too)
+                exif = img.getexif()
+                if exif:
+                    from PIL.ExifTags import TAGS
+                    exif_data = {}
+                    for tag_id, value in exif.items():
+                        tag = TAGS.get(tag_id, tag_id)
+                        decoded_value = decode_value(value)
+                        # Try to parse as JSON for UserComment and other fields
+                        if tag in ['UserComment', 'ImageDescription', 'XPComment']:
+                            decoded_value = try_parse_json(decoded_value)
+                        exif_data[str(tag)] = decoded_value
+                    
+                    if exif_data:
+                        metadata["_exif"] = exif_data
+        
+        elif file_ext == '.mp4':
+            # Extract video metadata using OpenCV
+            cap = cv2.VideoCapture(file_path)
+            if cap.isOpened():
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                duration = frame_count / fps if fps > 0 else 0
+                
+                metadata["_basic"] = {
+                    "Format": "MP4",
+                    "Size": f"{width} × {height}",
+                    "FPS": f"{fps:.2f}",
+                    "Frame Count": str(frame_count),
+                    "Duration": f"{duration:.2f}s"
+                }
+                
+                cap.release()
+            
+            # Extract MP4 metadata tags using mutagen
+            try:
+                from mutagen.mp4 import MP4
+                video = MP4(file_path)
+                
+                # Look for workflow data in various MP4 tags
+                workflow_keys = ['workflow', 'prompt', 'Workflow', 'Prompt', '©cmt', 'desc']
+                parameter_keys = ['parameters', 'Parameters']
+                
+                for key in video.keys():
+                    value = video[key]
+                    # MP4 tags are usually lists
+                    if isinstance(value, list) and len(value) > 0:
+                        value = value[0]
+                    
+                    # Decode if bytes
+                    if isinstance(value, bytes):
+                        value = value.decode('utf-8', errors='ignore')
+                    
+                    value_str = str(value)
+                    parsed_value = try_parse_json(value_str)
+                    
+                    # Check if this is workflow/generation data
+                    if any(wk.lower() in key.lower() for wk in workflow_keys):
+                        metadata[f"🔧 {key}"] = parsed_value
+                    elif any(pk.lower() in key.lower() for pk in parameter_keys):
+                        metadata[f"⚙️ {key}"] = parsed_value
+                    else:
+                        # Store in other metadata
+                        if "_mp4_tags" not in metadata:
+                            metadata["_mp4_tags"] = {}
+                        metadata["_mp4_tags"][key] = parsed_value
+            except Exception as e:
+                print(f"Error extracting MP4 tags with mutagen: {e}")
+            
+            # Try using ffprobe for more comprehensive metadata extraction
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', file_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    ffprobe_data = json.loads(result.stdout)
+                    if 'format' in ffprobe_data and 'tags' in ffprobe_data['format']:
+                        tags = ffprobe_data['format']['tags']
+                        
+                        for key, value in tags.items():
+                            parsed_value = try_parse_json(value)
+                            
+                            # Look for workflow keywords in key names
+                            key_lower = key.lower()
+                            if any(wk in key_lower for wk in ['workflow', 'prompt', 'comfy']):
+                                metadata[f"🔧 {key}"] = parsed_value
+                            elif any(pk in key_lower for pk in ['parameter', 'setting']):
+                                metadata[f"⚙️ {key}"] = parsed_value
+                            elif "_ffprobe_tags" not in metadata:
+                                metadata["_ffprobe_tags"] = {}
+                                metadata["_ffprobe_tags"][key] = parsed_value
+                            else:
+                                metadata["_ffprobe_tags"][key] = parsed_value
+            except FileNotFoundError:
+                # ffprobe not available
+                pass
+            except Exception as e:
+                print(f"Error extracting metadata with ffprobe: {e}")
+                pass
+        
+        # Add file system metadata to _basic section
+        file_stat = os.stat(file_path)
+        if "_basic" not in metadata:
+            metadata["_basic"] = {}
+        metadata["_basic"]["File Size"] = f"{file_stat.st_size:,} bytes"
+        metadata["_basic"]["Modified"] = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        
+        return jsonify({"success": True, "metadata": metadata})
+    
+    except Exception as e:
+        print(f"Error extracting metadata from {filename}: {e}")
+        return jsonify({"success": False, "message": f"Error extracting metadata: {str(e)}"}), 500
+
 @app.route("/archives")
 def list_archives():
     """List all .zip files in the archive directory, including their contents."""

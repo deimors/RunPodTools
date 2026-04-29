@@ -73,14 +73,28 @@
         </div>
     </div>
     <div id="lightbox">
-        <img id="lightbox-img" src="" alt="Lightbox Image">
-        <video id="lightbox-video" controls loop style="display:none;"></video>
-        <div id="lightbox-info"></div>
-        <div id="lightbox-rating"></div>
-        <div id="lightbox-controls">
-            <button id="play-animation-btn" class="active" title="Play Animation"><i class="fas fa-play"></i></button>
-            <button id="show-first-frame-btn" title="Show First Frame"><i class="fas fa-step-backward"></i></button>
-            <button id="show-last-frame-btn" title="Show Last Frame"><i class="fas fa-step-forward"></i></button>
+        <div id="lightbox-media-container">
+            <img id="lightbox-img" src="" alt="Lightbox Image">
+            <video id="lightbox-video" controls loop style="display:none;"></video>
+            <div id="lightbox-info-bar">
+                <div id="lightbox-rating"></div>
+                <div id="lightbox-info"></div>
+                <button id="toggle-metadata-btn" title="Show Metadata"><i class="fas fa-info-circle"></i></button>
+            </div>
+            <div id="lightbox-controls">
+                <button id="play-animation-btn" class="active animation-control" title="Play Animation"><i class="fas fa-play"></i></button>
+                <button id="show-first-frame-btn" class="animation-control" title="Show First Frame"><i class="fas fa-step-backward"></i></button>
+                <button id="show-last-frame-btn" class="animation-control" title="Show Last Frame"><i class="fas fa-step-forward"></i></button>
+            </div>
+        </div>
+        <div id="lightbox-metadata-panel" style="display:none;">
+            <div id="lightbox-metadata-header">
+                <h3>Metadata</h3>
+                <button id="close-metadata-btn" title="Close Metadata">&times;</button>
+            </div>
+            <div id="lightbox-metadata-content">
+                <div class="metadata-loading">Loading metadata...</div>
+            </div>
         </div>
     </div>
     <div id="modal" class="modal">

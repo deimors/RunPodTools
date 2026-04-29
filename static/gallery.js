@@ -42,6 +42,10 @@ const modalProgress = document.getElementById("modal-progress");
 const downloadBtn = document.getElementById("download-btn");
 const lightboxInfo = document.getElementById("lightbox-info");
 const lightboxRating = document.getElementById("lightbox-rating");
+const lightboxMetadataPanel = document.getElementById("lightbox-metadata-panel");
+const lightboxMetadataContent = document.getElementById("lightbox-metadata-content");
+const toggleMetadataBtn = document.getElementById("toggle-metadata-btn");
+const closeMetadataBtn = document.getElementById("close-metadata-btn");
 const sortBy = document.getElementById("sort-by");
 const sortDir = document.getElementById("sort-dir");
 const ratingFilter = document.getElementById("rating-filter");
@@ -54,6 +58,11 @@ const modalSteps = {
     zipDownloadStep: document.getElementById("zip-download-step"),
     infoStep: document.getElementById("info-step")
 };
+
+// Metadata cache and tracking
+const metadataCache = {};
+let currentLightboxFile = null;
+let currentLightboxDir = null;
 
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -94,6 +103,164 @@ function showModal(step) {
 function hideModal() {
     modal.style.display = "none";
 }
+
+// ─── Metadata Functions ────────────────────────────────────
+
+async function fetchMetadata(filename, dir) {
+    const cacheKey = `${dir}/${filename}`;
+    
+    // Check cache first
+    if (metadataCache[cacheKey]) {
+        return metadataCache[cacheKey];
+    }
+    
+    try {
+        const response = await fetch(`/metadata/${dir}/${filename}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            metadataCache[cacheKey] = data.metadata;
+            return data.metadata;
+        } else {
+            console.error("Metadata fetch failed:", data.message);
+            return null;
+        }
+    } catch (err) {
+        console.error("Error fetching metadata:", err);
+        return null;
+    }
+}
+
+function displayMetadata(metadata) {
+    if (!metadata) {
+        lightboxMetadataContent.innerHTML = '<div class="metadata-error">Failed to load metadata</div>';
+        return;
+    }
+    
+    let html = '';
+    
+    // Separate workflow/generation data from other metadata
+    const workflowSections = [];
+    const otherSections = [];
+    
+    for (const [sectionKey, sectionValue] of Object.entries(metadata)) {
+        if (sectionKey.startsWith('🔧') || sectionKey.startsWith('⚙️')) {
+            workflowSections.push([sectionKey, sectionValue]);
+        } else {
+            otherSections.push([sectionKey, sectionValue]);
+        }
+    }
+    
+    // Display workflow/generation data first (most important)
+    for (const [sectionKey, sectionValue] of workflowSections) {
+        html += `<div class="metadata-section collapsible collapsed">`;
+        html += `<div class="metadata-section-title collapsible-header" onclick="this.parentElement.classList.toggle('collapsed')">${sectionKey} <span class="collapse-icon">▼</span></div>`;
+        html += `<div class="collapsible-content">`;
+        
+        if (typeof sectionValue === 'object' && sectionValue !== null && !Array.isArray(sectionValue)) {
+            // Display as formatted JSON
+            html += `<div class="metadata-json">${formatJsonValue(sectionValue)}</div>`;
+        } else {
+            html += `<div class="metadata-value">${formatMetadataValue(sectionValue)}</div>`;
+        }
+        
+        html += `</div></div>`;
+    }
+    
+    // Display other metadata sections (collapsible)
+    for (const [sectionKey, sectionValue] of otherSections) {
+        const cleanKey = sectionKey.replace(/^_/, '');
+        const displayKey = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
+        
+        if (typeof sectionValue === 'object' && sectionValue !== null && !Array.isArray(sectionValue)) {
+            // Start with all sections collapsed
+            html += `<div class="metadata-section collapsible collapsed">`;
+            html += `<div class="metadata-section-title collapsible-header" onclick="this.parentElement.classList.toggle('collapsed')">${displayKey} <span class="collapse-icon">▼</span></div>`;
+            html += `<div class="collapsible-content">`;
+            html += `<div class="metadata-table">`;
+            
+            for (const [key, value] of Object.entries(sectionValue)) {
+                const displayValue = formatMetadataValue(value);
+                html += `
+                    <div class="metadata-row">
+                        <div class="metadata-key">${escapeHtml(key)}</div>
+                        <div class="metadata-value">${displayValue}</div>
+                    </div>
+                `;
+            }
+            
+            html += `</div></div></div>`;
+        }
+    }
+    
+    if (!html) {
+        html = '<div class="metadata-error">No metadata found</div>';
+    }
+    
+    lightboxMetadataContent.innerHTML = html;
+}
+
+function formatJsonValue(obj) {
+    try {
+        const jsonStr = JSON.stringify(obj, null, 2);
+        return `<pre class="json-display">${escapeHtml(jsonStr)}</pre>`;
+    } catch (e) {
+        return `<pre>${escapeHtml(String(obj))}</pre>`;
+    }
+}
+
+function formatMetadataValue(value) {
+    // Handle objects/arrays as JSON
+    if (typeof value === 'object' && value !== null) {
+        return formatJsonValue(value);
+    }
+    
+    // Handle long strings
+    const strValue = String(value);
+    if (strValue.length > 100) {
+        return `<pre>${escapeHtml(strValue)}</pre>`;
+    }
+    
+    return escapeHtml(strValue);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function toggleMetadataPanel() {
+    const isVisible = lightboxMetadataPanel.style.display !== 'none';
+    
+    if (isVisible) {
+        // Hide panel
+        lightboxMetadataPanel.style.display = 'none';
+        lightbox.classList.remove('with-metadata');
+        toggleMetadataBtn.title = 'Show Metadata';
+    } else {
+        // Show panel
+        lightboxMetadataPanel.style.display = 'flex';
+        lightbox.classList.add('with-metadata');
+        toggleMetadataBtn.title = 'Hide Metadata';
+        
+        // Fetch metadata if not already loaded
+        if (currentLightboxFile && currentLightboxDir) {
+            lightboxMetadataContent.innerHTML = '<div class="metadata-loading">Loading metadata...</div>';
+            fetchMetadata(currentLightboxFile, currentLightboxDir).then(metadata => {
+                displayMetadata(metadata);
+            });
+        }
+    }
+}
+
+function closeMetadataPanel() {
+    lightboxMetadataPanel.style.display = 'none';
+    lightbox.classList.remove('with-metadata');
+    toggleMetadataBtn.title = 'Show Metadata';
+}
+
+// ─── End Metadata Functions ────────────────────────────────
 
 function debounce(func, delay) {
     let timeoutId;
@@ -384,7 +551,8 @@ function createVideoElement(fileName, sortValue = null, duration = null, rating 
         lightboxVideo.style.display = "block";
         lightboxVideo.src = `/${currentDir}/${fileName}`;
         lightboxVideo.play();
-        document.getElementById("lightbox-controls").style.display = "none";
+        // Hide animation controls for videos, but keep metadata button visible
+        document.querySelectorAll(".animation-control").forEach(btn => btn.classList.add("hidden"));
 
         if (fileMetadata) {
             const resolution = fileMetadata.resolution ? fileMetadata.resolution : "";
@@ -399,6 +567,11 @@ function createVideoElement(fileName, sortValue = null, duration = null, rating 
             lightboxInfo.innerText = fileName;
             showLightboxRating(fileName, 0);
         }
+
+        // Track current file for metadata
+        currentLightboxFile = fileName;
+        currentLightboxDir = currentDir;
+        closeMetadataPanel();
 
         lightbox.style.display = "flex";
     });
@@ -492,6 +665,19 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
         const fileMetadata = fileMetadataCache[cacheKey];
         const currentRating = fileMetadata?.rating || 0;
         showLightboxRating(fileName, currentRating);
+        
+        // Show/hide animation controls based on whether it's animated
+        const animationControls = document.querySelectorAll(".animation-control");
+        if (isWebP && animatedPath) {
+            animationControls.forEach(btn => btn.classList.remove("hidden"));
+        } else {
+            animationControls.forEach(btn => btn.classList.add("hidden"));
+        }
+        
+        // Track current file for metadata
+        currentLightboxFile = fileName;
+        currentLightboxDir = currentDir;
+        closeMetadataPanel();
         
         lightbox.style.display = "flex";
     });
@@ -1068,7 +1254,13 @@ function navigateSubdir(subpath, navDir = currentDir) {
 }
 
 // Close lightbox on click
-lightbox.addEventListener("click", () => {
+lightbox.addEventListener("click", (e) => {
+    // Don't close if clicking on metadata panel or its contents
+    if (e.target.closest('#lightbox-metadata-panel')) return;
+    // Don't close if clicking on the toggle button or info bar
+    if (e.target.closest('#toggle-metadata-btn')) return;
+    if (e.target.closest('#lightbox-info-bar')) return;
+    
     lightbox.style.display = "none";
     lightboxImg.src = "";
     lightboxImg.style.display = "block";
@@ -1077,6 +1269,20 @@ lightbox.addEventListener("click", () => {
     lightboxVideo.style.display = "none";
     lightboxInfo.innerText = ""; // Clear info text
     lightboxRating.innerHTML = ""; // Clear rating
+    closeMetadataPanel(); // Close metadata panel
+    currentLightboxFile = null;
+    currentLightboxDir = null;
+});
+
+// Metadata panel controls
+toggleMetadataBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMetadataPanel();
+});
+
+closeMetadataBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeMetadataPanel();
 });
 
 // Initial load
@@ -1370,16 +1576,17 @@ lightboxImg.addEventListener("load", () => {
         // Show rating
         showLightboxRating(originalFilename, fileMetadata.rating || 0);
 
-        // Show controls only if the file is a WebP animation with frames
-        const lightboxControls = document.getElementById("lightbox-controls");
+        // Show animation controls only if the file is a WebP animation with frames
+        const animationControls = document.querySelectorAll(".animation-control");
         if (fileMetadata.frames && fileMetadata.frames > 0) {
-            lightboxControls.style.display = "flex";
+            animationControls.forEach(btn => btn.classList.remove("hidden"));
         } else {
-            lightboxControls.style.display = "none";
+            animationControls.forEach(btn => btn.classList.add("hidden"));
         }
     } else {
         lightboxInfo.innerText = filename;
         showLightboxRating(filename, 0);
-        document.getElementById("lightbox-controls").style.display = "none"; // Hide controls
+        // Hide animation controls for non-animated images
+        document.querySelectorAll(".animation-control").forEach(btn => btn.classList.add("hidden"));
     }
 });
