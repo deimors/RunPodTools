@@ -204,6 +204,10 @@ body {
     color: #ffd700; /* Gold color for filled stars */
 }
 
+.gallery .star.hover {
+    color: #ffed4e; /* Lighter gold on hover */
+}
+
 .gallery .star:hover {
     transform: scale(1.2);
     color: #ffed4e; /* Lighter gold on hover */
@@ -553,6 +557,10 @@ body {
 
 #lightbox-rating .star.filled {
     color: #ffd700;
+}
+
+#lightbox-rating .star.hover {
+    color: #ffed4e;
 }
 
 #lightbox-rating .star:hover {

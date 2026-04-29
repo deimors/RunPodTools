@@ -155,9 +155,22 @@ function createRatingWidget(filename, currentRating = 0) {
         const star = document.createElement('span');
         star.className = 'star';
         star.innerHTML = '★';
+        star.dataset.starIndex = i;
         if (i <= currentRating) {
             star.classList.add('filled');
         }
+        
+        star.addEventListener('mouseenter', () => {
+            // Highlight all stars up to and including this one
+            const stars = ratingContainer.querySelectorAll('.star');
+            stars.forEach((s, idx) => {
+                if (idx < i) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+        });
         
         star.addEventListener('click', async (e) => {
             e.stopPropagation(); // Prevent image click/lightbox
@@ -174,6 +187,12 @@ function createRatingWidget(filename, currentRating = 0) {
         
         ratingContainer.appendChild(star);
     }
+    
+    // Remove hover state when mouse leaves the container
+    ratingContainer.addEventListener('mouseleave', () => {
+        const stars = ratingContainer.querySelectorAll('.star');
+        stars.forEach(s => s.classList.remove('hover'));
+    });
 
     return ratingContainer;
 }
@@ -203,9 +222,22 @@ function showLightboxRating(filename, currentRating = 0) {
         const star = document.createElement('span');
         star.className = 'star';
         star.innerHTML = '★';
+        star.dataset.starIndex = i;
         if (i <= currentRating) {
             star.classList.add('filled');
         }
+        
+        star.addEventListener('mouseenter', () => {
+            // Highlight all stars up to and including this one
+            const stars = lightboxRating.querySelectorAll('.star');
+            stars.forEach((s, idx) => {
+                if (idx < i) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+        });
         
         star.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -235,6 +267,12 @@ function showLightboxRating(filename, currentRating = 0) {
         
         lightboxRating.appendChild(star);
     }
+    
+    // Remove hover state when mouse leaves the lightbox rating container
+    lightboxRating.addEventListener('mouseleave', () => {
+        const stars = lightboxRating.querySelectorAll('.star');
+        stars.forEach(s => s.classList.remove('hover'));
+    });
 }
 
 function createVideoElement(fileName, sortValue = null, duration = null, rating = 0) {
