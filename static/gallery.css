@@ -96,6 +96,76 @@ body {
     font-size: 0.8em;
 }
 
+#tag-filter-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+#tag-filter-btn {
+    display: inline-block;
+    padding: 0.2em 1.5em 0.2em 0.4em;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 0.8em;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23555'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.4em center;
+    color: #000;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+#tag-filter-btn:hover {
+    background-color: #e8e8e8;
+}
+
+#tag-filter-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 2px);
+    right: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    min-width: 130px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    font-size: 0.8em;
+    color: #222;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+#tag-filter-dropdown.open {
+    display: block;
+}
+
+.tag-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.3em 0.6em;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.tag-filter-item:hover {
+    background: #e8e8e8;
+}
+
+.tag-filter-no-tags {
+    color: #888;
+    font-style: italic;
+    padding: 0.3em 0.6em;
+    cursor: default;
+    white-space: nowrap;
+}
+
 /* ─── Gallery Grid ───────────────────────────────────────── */
 
 .gallery {

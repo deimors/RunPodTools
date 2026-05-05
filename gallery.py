@@ -161,6 +161,30 @@ def make_dir():
 
     return jsonify({"message": "Directory created"}), 200
 
+@app.route("/tags")
+def list_tags():
+    dir_name = request.args.get("dir", "gallery")
+    subpath = request.args.get("subpath", "")
+    tag_filter_param = request.args.get("tag_filter", "")
+    source = get_source_for_directory(dir_name)
+    if not hasattr(source, 'tags_manager') or source.tags_manager is None:
+        return jsonify({"tags": []})
+    all_files = source.list_files_in_dir(subpath)
+    # Build a dict of filename -> tag set once
+    file_tags = {f: set(source.tags_manager.get_tags(f)) for f in all_files}
+    # Collect every tag that exists in this directory
+    all_tag_set = set()
+    for tags in file_tags.values():
+        all_tag_set.update(tags)
+    selected_tags = {t for t in tag_filter_param.split(",") if t}
+    # For each tag, count files where selected_tags | {tag} ⊆ file_tags
+    result = []
+    for tag in sorted(all_tag_set):
+        required = selected_tags | {tag}
+        count = sum(1 for tags in file_tags.values() if required <= tags)
+        result.append({"name": tag, "count": count})
+    return jsonify({"tags": result})
+
 @app.route("/images")
 def list_images():
     dir_name = request.args.get("dir", "gallery")
@@ -169,7 +193,8 @@ def list_images():
     sort_dir = request.args.get("sort_dir", "asc")
     subpath = request.args.get("subpath", "")
     rating_filter = request.args.get("rating_filter", "all")
-    
+    tag_filter_param = request.args.get("tag_filter", "")
+
     source = get_source_for_directory(dir_name)
     all_files = source.list_files_in_dir(subpath)
     
@@ -182,6 +207,13 @@ def list_images():
                            if source.ratings_manager.get_rating(f) == target_rating]
         except (ValueError, TypeError):
             pass  # Invalid rating filter, ignore
+
+    # Filter by tags if specified
+    if tag_filter_param and hasattr(source, 'tags_manager') and source.tags_manager is not None:
+        required_tags = {t for t in tag_filter_param.split(",") if t}
+        if required_tags:
+            all_files = [f for f in all_files
+                         if required_tags <= set(source.tags_manager.get_tags(f))]
     
     # Sorting logic
     def sort_key(file):

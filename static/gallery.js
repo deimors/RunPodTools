@@ -49,7 +49,71 @@ const closeMetadataBtn = document.getElementById("close-metadata-btn");
 const sortBy = document.getElementById("sort-by");
 const sortDir = document.getElementById("sort-dir");
 const ratingFilter = document.getElementById("rating-filter");
+const tagFilterBtn = document.getElementById("tag-filter-btn");
+const tagFilterDropdown = document.getElementById("tag-filter-dropdown");
 const loadingText = document.getElementById("loading"); // Extracted loading text element
+
+let selectedTags = new Set();
+
+function updateTagFilterLabel() {
+    tagFilterBtn.textContent = selectedTags.size === 0 ? "Select..." : `Tags (${selectedTags.size})`;
+}
+
+async function fetchAndPopulateTagFilter() {
+    try {
+        const tagFilterParam = selectedTags.size > 0 ? `&tag_filter=${[...selectedTags].join(",")}` : "";
+        const response = await fetch(`/tags?dir=${currentDir}&subpath=${encodeURIComponent(currentSubpath)}${tagFilterParam}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const tags = data.tags || [];
+        tagFilterDropdown.innerHTML = "";
+        if (tags.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "tag-filter-no-tags";
+            empty.textContent = "No tags";
+            tagFilterDropdown.appendChild(empty);
+        } else {
+            tags.forEach(({name, count}) => {
+                const label = document.createElement("label");
+                label.className = "tag-filter-item";
+                const cb = document.createElement("input");
+                cb.type = "checkbox";
+                cb.value = name;
+                cb.checked = selectedTags.has(name);
+                cb.addEventListener("change", () => {
+                    if (cb.checked) {
+                        selectedTags.add(name);
+                    } else {
+                        selectedTags.delete(name);
+                    }
+                    updateTagFilterLabel();
+                    page = 0;
+                    done = false;
+                    loading = false;
+                    gallery.innerHTML = "";
+                    loadMore();
+                    fetchAndPopulateTagFilter();
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(` ${name} (${count})`) );
+                tagFilterDropdown.appendChild(label);
+            });
+        }
+    } catch (err) {
+        console.error("Error fetching tags:", err);
+    }
+}
+
+tagFilterBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    tagFilterDropdown.classList.toggle("open");
+});
+
+document.addEventListener("click", (e) => {
+    if (!e.target.closest("#tag-filter-wrapper")) {
+        tagFilterDropdown.classList.remove("open");
+    }
+});
 
 const modalSteps = {
     deleteConfirmation: document.getElementById("delete-confirmation"),
@@ -329,6 +393,7 @@ function initTagModal(selectedFiles) {
         for (const [filename, newTags] of Object.entries(lastTagsByFile)) {
             updateThumbnailTags(filename, newTags);
         }
+        fetchAndPopulateTagFilter();
     };
 }
 
@@ -474,6 +539,7 @@ function showLightboxTags(dir, filename, tags) {
                     if (fileMetadataCache[cacheKey]) fileMetadataCache[cacheKey].tags = data.tags;
                     showLightboxTags(dir, filename, data.tags);
                     updateThumbnailTags(filename, data.tags);
+                    fetchAndPopulateTagFilter();
                 }
             } catch (err) {
                 console.error('Error removing tag:', err);
@@ -506,6 +572,7 @@ function showLightboxTags(dir, filename, tags) {
                 if (newTags !== null) {
                     showLightboxTags(dir, filename, newTags);
                     updateThumbnailTags(filename, newTags);
+                    fetchAndPopulateTagFilter();
                     return;
                 }
             }
@@ -973,8 +1040,9 @@ async function loadMore() {
     fetchController = new AbortController();
 
     try {
+        const tagFilterParam = selectedTags.size > 0 ? `&tag_filter=${[...selectedTags].join(",")}` : "";
         const response = await fetch(
-            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}&rating_filter=${ratingFilter.value}`,
+            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}&rating_filter=${ratingFilter.value}${tagFilterParam}`,
             { signal: fetchController.signal }
         );
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -1049,8 +1117,11 @@ function switchDirectory(dir) {
     gallery.style.display = "grid"; // Show gallery for "Gallery" and "Uploads"
     dropArea.style.display = dir === "uploads" ? "block" : "none"; // Show drop area only for "Uploads"
     ratingFilter.value = "all"; // Reset rating filter
+    selectedTags.clear();
+    updateTagFilterLabel();
 
     loadMore(); // Load new directory contents
+    fetchAndPopulateTagFilter();
 
     // Update heading text
     mainHeadingName.innerHTML = dir === "gallery" ? "Gallery" : "Uploads";
@@ -1485,6 +1556,8 @@ function navigateSubdir(subpath, navDir = currentDir) {
         dropArea.style.display = navDir === "uploads" ? "block" : "none";
         updateActiveFolderButton(navDir);
         ratingFilter.value = "all"; // Reset rating filter when switching directories
+        selectedTags.clear();
+        updateTagFilterLabel();
     }
     currentSubpath = subpath;
     // Store the subpath for the current directory
@@ -1510,6 +1583,7 @@ function navigateSubdir(subpath, navDir = currentDir) {
 
     renderDirTree(navDir);
     loadMore();
+    fetchAndPopulateTagFilter();
 }
 
 // Close lightbox on click
@@ -1547,6 +1621,7 @@ closeMetadataBtn.addEventListener("click", (e) => {
 
 // Initial load
 loadMore();
+fetchAndPopulateTagFilter();
 
 // Infinite scroll
 window.addEventListener("scroll", () => {
