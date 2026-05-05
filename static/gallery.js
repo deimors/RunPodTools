@@ -56,7 +56,8 @@ const modalSteps = {
     zipFilenameStep: document.getElementById("zip-filename-step"),
     zipProgressStep: document.getElementById("zip-progress-step"),  
     zipDownloadStep: document.getElementById("zip-download-step"),
-    infoStep: document.getElementById("info-step")
+    infoStep: document.getElementById("info-step"),
+    tagStep: document.getElementById("tag-step")
 };
 
 // Metadata cache and tracking
@@ -103,6 +104,12 @@ function showModal(step) {
 function hideModal() {
     modal.style.display = "none";
 }
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.style.display === "block") {
+        hideModal();
+    }
+});
 
 // ─── Metadata Functions ────────────────────────────────────
 
@@ -282,6 +289,94 @@ const debouncedMouseEnter = debounce((img, loadingIndicator) => {
         img.src = img.dataset.animated;
     }
 }, 500);
+
+// ─── Tag Modal (Bulk Tag) ─────────────────────────────────
+
+function initTagModal(selectedFiles) {
+    const list = document.getElementById('tag-pending-list');
+    list.innerHTML = '';
+    addPendingInputChip(list);
+
+    const tagApplyBtn = document.getElementById('tag-apply-btn');
+    tagApplyBtn.onclick = async () => {
+        const tags = Array.from(list.querySelectorAll('.tag-pending-chip'))
+            .map(el => el.dataset.tag)
+            .filter(Boolean);
+
+        // Also commit any text currently in the active input chip
+        const activeInput = list.querySelector('.tag-pending-input');
+        if (activeInput) {
+            const val = activeInput.value.trim();
+            if (val) tags.push(val);
+        }
+
+        if (tags.length === 0) return;
+
+        hideModal();
+
+        const requests = [];
+        const lastTagsByFile = {};
+        for (const filename of selectedFiles) {
+            for (const tag of tags) {
+                requests.push(
+                    addTagRequest(currentDir, filename, tag).then(newTags => {
+                        if (newTags !== null) lastTagsByFile[filename] = newTags;
+                    })
+                );
+            }
+        }
+        await Promise.all(requests);
+        for (const [filename, newTags] of Object.entries(lastTagsByFile)) {
+            updateThumbnailTags(filename, newTags);
+        }
+    };
+}
+
+function addPendingInputChip(list) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tag-pending-input';
+    input.placeholder = 'tag name…';
+
+    input.addEventListener('input', () => {
+        const coerced = input.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        if (input.value !== coerced) input.value = coerced;
+        input.style.width = Math.max(80, input.value.length * 7.5 + 24) + 'px';
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const tag = input.value.trim();
+            if (!tag) return;
+            const chip = createPendingFilledChip(tag);
+            list.replaceChild(chip, input);
+            addPendingInputChip(list);
+        }
+    });
+
+    list.appendChild(input);
+    setTimeout(() => input.focus(), 50);
+    return input;
+}
+
+function createPendingFilledChip(tag) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-pending-chip';
+    chip.dataset.tag = tag;
+
+    const text = document.createElement('span');
+    text.textContent = tag;
+    chip.appendChild(text);
+
+    const del = document.createElement('span');
+    del.className = 'tag-pending-chip-delete';
+    del.textContent = '×';
+    del.addEventListener('click', () => chip.remove());
+    chip.appendChild(del);
+
+    return chip;
+}
 
 // ─── Tag Functions ────────────────────────────────────────
 
@@ -1556,6 +1651,18 @@ document.getElementById("toolbar").addEventListener("click", (e) => {
             checkbox.checked = false;
             container.classList.remove("selected");
         });
+    } else if (e.target.closest("#tag-selected-btn")) {
+        const selectedFiles = getSelectedImages();
+        if (selectedFiles.length === 0) {
+            showInfo("Can't Tag Selected", "No files selected.");
+            return;
+        }
+
+        const tagInfo = document.getElementById("tag-info");
+        tagInfo.innerText = `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} selected`;
+
+        showModal("tagStep");
+        initTagModal(selectedFiles);
     } else if (e.target.closest("#zip-selected-btn")) {
         const selectedFiles = getSelectedImages();
         if (selectedFiles.length === 0) {

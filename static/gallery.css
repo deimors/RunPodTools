@@ -1177,6 +1177,67 @@ body {
     color: rgba(255, 255, 255, 0.35);
 }
 
+/* ─── Modal tag pending list ─────────────────────────────── */
+
+#tag-pending-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 1em;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.tag-pending-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #e6f2ff;
+    color: var(--color-primary-dark);
+    font-size: 13px;
+    padding: 4px 8px 4px 10px;
+    border-radius: 12px;
+    user-select: none;
+}
+
+.tag-pending-chip-delete {
+    cursor: pointer;
+    color: #888;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 1px;
+    border-radius: 50%;
+    transition: color 0.15s;
+}
+
+.tag-pending-chip-delete:hover {
+    color: #d9534f;
+}
+
+.tag-pending-input {
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px !important;
+    outline: none;
+    min-width: 80px !important;
+    width: 80px !important;
+    line-height: 1.4;
+    margin-bottom: 0;
+    box-sizing: content-box;
+}
+
+.tag-pending-input::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.tag-pending-input:focus {
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
 /* ─── Animations ─────────────────────────────────────────── */
 
 @keyframes spin {
