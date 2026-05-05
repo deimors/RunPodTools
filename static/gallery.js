@@ -356,10 +356,26 @@ const debouncedMouseEnter = debounce((img, loadingIndicator) => {
 
 // ─── Tag Modal (Bulk Tag) ─────────────────────────────────
 
+let _cachedTagSuggestions = [];
+
+async function fetchTagSuggestions() {
+    try {
+        const dirs = ['gallery', 'uploads'];
+        const results = await Promise.all(
+            dirs.map(d => fetch(`/tags?dir=${encodeURIComponent(d)}`).then(r => r.json()).catch(() => ({ tags: [] })))
+        );
+        const tagSet = new Set();
+        results.forEach(data => (data.tags || []).forEach(t => tagSet.add(t.name)));
+        _cachedTagSuggestions = Array.from(tagSet).sort();
+    } catch (e) {
+        _cachedTagSuggestions = [];
+    }
+}
+
 function initTagModal(selectedFiles) {
     const list = document.getElementById('tag-pending-list');
     list.innerHTML = '';
-    addPendingInputChip(list);
+    fetchTagSuggestions().then(() => addPendingInputChip(list));
 
     const tagApplyBtn = document.getElementById('tag-apply-btn');
     tagApplyBtn.onclick = async () => {
@@ -398,31 +414,102 @@ function initTagModal(selectedFiles) {
 }
 
 function addPendingInputChip(list) {
+    // wrapper keeps input + dropdown together
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tag-pending-input-wrapper';
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'tag-pending-input';
-    input.placeholder = 'tag name…';
+    input.placeholder = 'tag name\u2026';
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'tag-pending-dropdown';
+
+    let highlightIndex = -1;
+
+    function updateDropdown() {
+        const query = input.value.toLowerCase();
+        dropdown.innerHTML = '';
+        highlightIndex = -1;
+        if (!query) { dropdown.style.display = 'none'; return; }
+        const alreadyAdded = new Set(
+            Array.from(list.querySelectorAll('.tag-pending-chip')).map(c => c.dataset.tag)
+        );
+        const matches = _cachedTagSuggestions.filter(
+            t => t.includes(query) && !alreadyAdded.has(t)
+        ).slice(0, 8);
+        if (!matches.length) { dropdown.style.display = 'none'; return; }
+        matches.forEach(tag => {
+            const item = document.createElement('div');
+            item.className = 'tag-pending-dropdown-item';
+            item.textContent = tag;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // don't blur input
+                commitTag(tag);
+            });
+            dropdown.appendChild(item);
+        });
+        dropdown.style.display = 'block';
+    }
+
+    function highlightItem(idx) {
+        const items = dropdown.querySelectorAll('.tag-pending-dropdown-item');
+        items.forEach((el, i) => el.classList.toggle('highlighted', i === idx));
+        highlightIndex = idx;
+    }
+
+    function commitTag(tag) {
+        dropdown.style.display = 'none';
+        const chip = createPendingFilledChip(tag);
+        list.insertBefore(chip, wrapper);
+        input.value = '';
+        input.style.width = '80px';
+        updateDropdown();
+        input.focus();
+    }
 
     input.addEventListener('input', () => {
         const coerced = input.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
         if (input.value !== coerced) input.value = coerced;
         input.style.width = Math.max(80, input.value.length * 7.5 + 24) + 'px';
+        updateDropdown();
     });
 
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        const items = dropdown.querySelectorAll('.tag-pending-dropdown-item');
+        if (e.key === 'ArrowDown') {
             e.preventDefault();
-            const tag = input.value.trim();
-            if (!tag) return;
-            const chip = createPendingFilledChip(tag);
-            list.replaceChild(chip, input);
-            addPendingInputChip(list);
+            highlightItem(Math.min(highlightIndex + 1, items.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlightItem(Math.max(highlightIndex - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightIndex >= 0 && items[highlightIndex]) {
+                commitTag(items[highlightIndex].textContent);
+            } else {
+                const tag = input.value.trim();
+                if (!tag) return;
+                commitTag(tag);
+            }
+        } else if (e.key === 'Escape') {
+            if (dropdown.style.display === 'block') {
+                e.stopPropagation();
+                dropdown.style.display = 'none';
+            }
         }
     });
 
-    list.appendChild(input);
+    input.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(dropdown);
+    list.appendChild(wrapper);
     setTimeout(() => input.focus(), 50);
-    return input;
+    return wrapper;
 }
 
 function createPendingFilledChip(tag) {
@@ -555,18 +642,53 @@ function showLightboxTags(dir, filename, tags) {
 
     addChip.addEventListener('click', (e) => {
         e.stopPropagation();
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tag-input-popup-wrapper';
+
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'tag-input-popup';
         input.placeholder = 'tag name';
 
-        input.addEventListener('input', () => {
-            const coerced = input.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
-            if (input.value !== coerced) input.value = coerced;
-        });
+        const dropdown = document.createElement('div');
+        dropdown.className = 'tag-input-popup-dropdown';
 
-        const commit = async () => {
-            const tag = input.value.trim();
+        let highlightIndex = -1;
+
+        function updateDropdown() {
+            const query = input.value.toLowerCase();
+            dropdown.innerHTML = '';
+            highlightIndex = -1;
+            if (!query) { dropdown.style.display = 'none'; return; }
+            const currentTags = new Set(
+                Array.from(container.querySelectorAll('.tag-chip')).map(c => c.childNodes[0].textContent.trim())
+            );
+            const matches = _cachedTagSuggestions.filter(
+                t => t.includes(query) && !currentTags.has(t)
+            ).slice(0, 8);
+            if (!matches.length) { dropdown.style.display = 'none'; return; }
+            matches.forEach(tag => {
+                const item = document.createElement('div');
+                item.className = 'tag-pending-dropdown-item';
+                item.textContent = tag;
+                item.addEventListener('mousedown', (ev) => {
+                    ev.preventDefault();
+                    commitTag(tag);
+                });
+                dropdown.appendChild(item);
+            });
+            dropdown.style.display = 'block';
+        }
+
+        function highlightItem(idx) {
+            const items = dropdown.querySelectorAll('.tag-pending-dropdown-item');
+            items.forEach((el, i) => el.classList.toggle('highlighted', i === idx));
+            highlightIndex = idx;
+        }
+
+        async function commitTag(tag) {
+            dropdown.style.display = 'none';
             if (tag) {
                 const newTags = await addTagRequest(dir, filename, tag);
                 if (newTags !== null) {
@@ -576,24 +698,52 @@ function showLightboxTags(dir, filename, tags) {
                     return;
                 }
             }
-            if (input.parentNode === container) container.replaceChild(addChip, input);
-        };
+            if (wrapper.parentNode === container) container.replaceChild(addChip, wrapper);
+        }
+
+        input.addEventListener('input', () => {
+            const coerced = input.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+            if (input.value !== coerced) input.value = coerced;
+            updateDropdown();
+        });
 
         input.addEventListener('keydown', async (ke) => {
-            if (ke.key === 'Enter') { ke.preventDefault(); await commit(); }
-            else if (ke.key === 'Escape') {
-                if (input.parentNode === container) container.replaceChild(addChip, input);
+            const items = dropdown.querySelectorAll('.tag-pending-dropdown-item');
+            if (ke.key === 'ArrowDown') {
+                ke.preventDefault();
+                highlightItem(Math.min(highlightIndex + 1, items.length - 1));
+            } else if (ke.key === 'ArrowUp') {
+                ke.preventDefault();
+                highlightItem(Math.max(highlightIndex - 1, 0));
+            } else if (ke.key === 'Enter') {
+                ke.preventDefault();
+                if (highlightIndex >= 0 && items[highlightIndex]) {
+                    await commitTag(items[highlightIndex].textContent);
+                } else {
+                    await commitTag(input.value.trim());
+                }
+            } else if (ke.key === 'Escape') {
+                if (dropdown.style.display === 'block') {
+                    ke.stopPropagation();
+                    dropdown.style.display = 'none';
+                } else {
+                    if (wrapper.parentNode === container) container.replaceChild(addChip, wrapper);
+                }
             }
         });
 
         input.addEventListener('blur', () => {
             setTimeout(() => {
-                if (input.parentNode === container) container.replaceChild(addChip, input);
+                dropdown.style.display = 'none';
+                if (wrapper.parentNode === container) container.replaceChild(addChip, wrapper);
             }, 150);
         });
 
-        container.replaceChild(input, addChip);
+        wrapper.appendChild(input);
+        wrapper.appendChild(dropdown);
+        container.replaceChild(wrapper, addChip);
         input.focus();
+        fetchTagSuggestions();
     });
 
     container.appendChild(addChip);
