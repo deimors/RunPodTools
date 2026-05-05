@@ -608,8 +608,8 @@ body {
 }
 
 #lightbox img {
-    max-width: 90%;
-    max-height: 90%;
+    max-width: 90vw;
+    max-height: 80vh;
     border-radius: var(--radius-default);
 }
 
@@ -619,8 +619,8 @@ body {
 }
 
 #lightbox-video {
-    max-width: 90%;
-    max-height: 80%;
+    max-width: 90vw;
+    max-height: 80vh;
     border-radius: var(--radius-default);
 }
 
