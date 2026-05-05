@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import shutil
 from flask import Flask, send_from_directory, jsonify, render_template, abort, request, Response, send_file
 from werkzeug.utils import secure_filename
 import io
@@ -645,6 +646,94 @@ def delete_files():
         "deleted": deleted,
         "errors": errors
     }), 200 if success else 500
+
+@app.route("/move", methods=["POST"])
+def move_files():
+    """Move selected files to a different directory or subdirectory."""
+    data = request.json
+    files = data.get("files", [])
+    source_dir = data.get("source_dir", "gallery")
+    target_dir = data.get("target_dir", "gallery")
+    target_subpath = data.get("target_subpath", "")
+
+    if not files:
+        return jsonify({"success": False, "message": "No files selected"}), 400
+    if source_dir not in ("gallery", "uploads") or target_dir not in ("gallery", "uploads"):
+        return jsonify({"success": False, "message": "Invalid directory"}), 400
+
+    source = get_source_for_directory(source_dir)
+    target = get_source_for_directory(target_dir)
+
+    # Validate target subpath
+    target_base = target._resolve_subpath(target_subpath)
+    if target_base is None:
+        return jsonify({"success": False, "message": "Invalid target path"}), 400
+
+    moved = []
+    errors = []
+
+    for file in files:
+        file = file.replace(os.sep, '/')
+        if not source.file_exists(file):
+            errors.append(f"{file}: Source file not found")
+            continue
+
+        basename = os.path.basename(file)
+        new_relative = (target_subpath.rstrip('/') + '/' + basename).lstrip('/') if target_subpath else basename
+        new_relative_fwd = new_relative.replace(os.sep, '/')
+
+        # Prevent collision
+        if target.file_exists(new_relative_fwd):
+            errors.append(f"{file}: A file with that name already exists at the destination")
+            continue
+
+        src_full = source.get_file_path(file)
+        dst_full = os.path.join(target_base, basename)
+
+        try:
+            os.makedirs(target_base, exist_ok=True)
+            shutil.move(src_full, dst_full)
+        except Exception as e:
+            errors.append(f"{file}: {e}")
+            continue
+
+        # Migrate tags
+        if source_dir == target_dir:
+            if source.tags_manager:
+                source.tags_manager.rename_file_key(file, new_relative_fwd)
+            if source.ratings_manager:
+                source.ratings_manager.rename_file_key(file, new_relative_fwd)
+        else:
+            # Copy tags to target source, remove from source
+            if source.tags_manager and target.tags_manager:
+                existing_tags = source.tags_manager.get_tags(file)
+                for tag in existing_tags:
+                    target.tags_manager.add_tag(new_relative_fwd, tag)
+                source.tags_manager.delete_file_tags(file)
+            # Copy rating to target source, remove from source
+            if source.ratings_manager and target.ratings_manager:
+                existing_rating = source.ratings_manager.get_rating(file)
+                if existing_rating:
+                    target.ratings_manager.set_rating(new_relative_fwd, existing_rating)
+                source.ratings_manager.delete_rating(file)
+
+        # Clear backend caches for the moved file
+        cache_keys_to_remove = [k for k in static_frame_cache if k.startswith(f"{file}_")]
+        for k in cache_keys_to_remove:
+            del static_frame_cache[k]
+        old_thumb_key = f"{source_dir}/{file}"
+        if old_thumb_key in video_thumbnail_cache:
+            del video_thumbnail_cache[old_thumb_key]
+
+        moved.append(file)
+
+    success = len(moved) > 0
+    return jsonify({
+        "success": success,
+        "message": f"Moved {len(moved)} file(s)" + (f"; Errors: {', '.join(errors)}" if errors else ""),
+        "moved": moved,
+        "errors": errors
+    }), 200 if success or not errors else 500
 
 @app.route("/archive/extract", methods=["POST"])
 def extract_archive():

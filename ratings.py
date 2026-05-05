@@ -106,6 +106,15 @@ class RatingsManager:
                 self._save_ratings_unsafe()
                 return True
             return False
+
+    def rename_file_key(self, old_filename: str, new_filename: str) -> bool:
+        old_filename = old_filename.replace(os.sep, '/')
+        new_filename = new_filename.replace(os.sep, '/')
+        with self._lock:
+            if old_filename in self._ratings:
+                self._ratings[new_filename] = self._ratings.pop(old_filename)
+                return self._save_ratings_unsafe()
+            return True
     
     def save_ratings(self) -> bool:
         """

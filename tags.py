@@ -66,6 +66,15 @@ class TagsManager:
                 return self._save_unsafe()
             return True
 
+    def rename_file_key(self, old_filename: str, new_filename: str) -> bool:
+        old_filename = old_filename.replace(os.sep, '/')
+        new_filename = new_filename.replace(os.sep, '/')
+        with self._lock:
+            if old_filename in self._tags:
+                self._tags[new_filename] = self._tags.pop(old_filename)
+                return self._save_unsafe()
+            return True
+
     def _save_unsafe(self) -> bool:
         try:
             os.makedirs(self.directory, exist_ok=True)

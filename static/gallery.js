@@ -11,6 +11,8 @@ const dirTreeCache = {};
 let dirPanelHideTimer = null;
 let activeDirBtn = null;
 let panelDir = null;
+let moveTargetDir = null;
+let moveTargetSubpath = null;
 
 const gallery = document.getElementById("gallery");
 const archivesContainer = document.getElementById("archives-container");
@@ -121,7 +123,8 @@ const modalSteps = {
     zipProgressStep: document.getElementById("zip-progress-step"),  
     zipDownloadStep: document.getElementById("zip-download-step"),
     infoStep: document.getElementById("info-step"),
-    tagStep: document.getElementById("tag-step")
+    tagStep: document.getElementById("tag-step"),
+    moveStep: document.getElementById("move-step")
 };
 
 // Metadata cache and tracking
@@ -1888,6 +1891,13 @@ document.getElementById("toolbar").addEventListener("click", (e) => {
 
         showModal("tagStep");
         initTagModal(selectedFiles);
+    } else if (e.target.closest("#move-selected-btn")) {
+        const selectedFiles = getSelectedImages();
+        if (selectedFiles.length === 0) {
+            showInfo("Can't Move Selected", "No files selected.");
+            return;
+        }
+        openMoveModal(selectedFiles);
     } else if (e.target.closest("#zip-selected-btn")) {
         const selectedFiles = getSelectedImages();
         if (selectedFiles.length === 0) {
@@ -2006,6 +2016,149 @@ async function deleteFiles(files) {
         showInfo("Deletion Complete", result.message);
     } else {
         showInfo("Deletion Error", `Error deleting files: ${result.message}`);
+    }
+}
+
+// ─── Move Selected ────────────────────────────────────────
+
+async function openMoveModal(selectedFiles) {
+    moveTargetDir = null;
+    moveTargetSubpath = null;
+
+    document.getElementById("move-info").innerText =
+        `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} selected`;
+    document.getElementById("move-apply-btn").disabled = true;
+
+    showModal("moveStep");
+
+    const moveTree = document.getElementById("move-tree");
+    moveTree.innerHTML = '<div class="move-tree-loading">Loading...</div>';
+
+    // Fetch both directory trees in parallel (reuse cache where possible)
+    const fetchTree = async (dir) => {
+        if (!dirTreeCache[dir]) {
+            const res = await fetch(`/dirs?dir=${dir}`);
+            if (!res.ok) throw new Error(`Failed to fetch ${dir} tree`);
+            const data = await res.json();
+            dirTreeCache[dir] = data.tree;
+        }
+        return dirTreeCache[dir];
+    };
+
+    let galleryTree, uploadsTree;
+    try {
+        [galleryTree, uploadsTree] = await Promise.all([fetchTree("gallery"), fetchTree("uploads")]);
+    } catch (err) {
+        moveTree.innerHTML = '<div class="move-tree-loading">Failed to load directories.</div>';
+        return;
+    }
+
+    moveTree.innerHTML = "";
+    renderMoveTreeSection(moveTree, "Gallery", "gallery", galleryTree);
+    renderMoveTreeSection(moveTree, "Uploads", "uploads", uploadsTree);
+
+    document.getElementById("move-apply-btn").onclick = () => applyMove(selectedFiles);
+}
+
+function renderMoveTreeSection(container, label, dir, tree) {
+    const section = document.createElement("div");
+    section.className = "move-tree-section";
+
+    const heading = document.createElement("div");
+    heading.className = "move-dir-section-header";
+    heading.textContent = label;
+    section.appendChild(heading);
+
+    // Root row
+    section.appendChild(createMoveRow("/", dir, "", 0));
+
+    // Recurse children
+    function appendChildren(parentEl, nodes, depth) {
+        nodes.forEach(node => {
+            parentEl.appendChild(createMoveRow(node.name + "/", dir, node.path, depth));
+            if (node.children && node.children.length > 0) {
+                appendChildren(parentEl, node.children, depth + 1);
+            }
+        });
+    }
+    appendChildren(section, tree, 1);
+
+    container.appendChild(section);
+}
+
+function createMoveRow(label, dir, subpath, depth) {
+    const row = document.createElement("div");
+    row.className = "move-dir-item";
+    row.style.paddingLeft = `${0.5 + depth * 1.2}em`;
+
+    const icon = document.createElement("i");
+    icon.className = "fas fa-folder";
+    icon.style.marginRight = "0.4em";
+    row.appendChild(icon);
+
+    const text = document.createElement("span");
+    text.textContent = label;
+    row.appendChild(text);
+
+    row.addEventListener("click", () => {
+        document.querySelectorAll(".move-dir-item.move-selected")
+            .forEach(el => {
+                el.classList.remove("move-selected");
+                el.querySelector("i").className = "fas fa-folder";
+            });
+        row.classList.add("move-selected");
+        icon.className = "fas fa-folder-open";
+        moveTargetDir = dir;
+        moveTargetSubpath = subpath;
+        document.getElementById("move-apply-btn").disabled = false;
+    });
+
+    return row;
+}
+
+async function applyMove(selectedFiles) {
+    if (!moveTargetDir) return;
+
+    document.getElementById("move-apply-btn").disabled = true;
+
+    const response = await fetch("/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            files: selectedFiles,
+            source_dir: currentDir,
+            target_dir: moveTargetDir,
+            target_subpath: moveTargetSubpath || ""
+        })
+    });
+    const result = await response.json();
+
+    if (result.moved && result.moved.length > 0) {
+        // Remove moved items from the gallery DOM
+        result.moved.forEach(filename => {
+            const imgContainer = Array.from(gallery.children).find(container => {
+                const img = container.querySelector("img");
+                const video = container.querySelector("video");
+                return (img && img.alt === filename) || (video && video.dataset.filename === filename);
+            });
+            if (imgContainer) gallery.removeChild(imgContainer);
+
+            // Clear metadata cache for moved file
+            const cacheKey = `${currentDir}/${filename}`;
+            delete metadataCache[cacheKey];
+            delete fileMetadataCache[cacheKey];
+        });
+
+        // Invalidate dir tree caches so panels refresh on next hover
+        delete dirTreeCache[currentDir];
+        delete dirTreeCache[moveTargetDir];
+    }
+
+    hideModal();
+
+    if (result.errors && result.errors.length > 0) {
+        const movedMsg = result.moved.length > 0 ? `Moved ${result.moved.length} file(s).<br>` : "";
+        showInfo("Move Errors", movedMsg + result.errors.map(e => `<div>${e}</div>`).join(""));
     }
 }
 

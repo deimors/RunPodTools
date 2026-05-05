@@ -1378,3 +1378,69 @@ body {
     0%   { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* ─── Move Selected Modal ──────────────────────────────── */
+
+#move-step {
+    min-width: 320px;
+    text-align: left;
+}
+
+/* Widen the modal content when the move step is visible */
+.modal-content:has(#move-step[style*="display: block"]) {
+    width: 420px;
+}
+
+#move-tree {
+    max-height: 360px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fafafa;
+    padding: 0.3em 0;
+}
+
+.move-tree-loading {
+    padding: 0.75em 1em;
+    color: #888;
+    font-size: 0.9em;
+}
+
+.move-tree-section + .move-tree-section {
+    border-top: 1px solid #e0e0e0;
+    margin-top: 0.15em;
+    padding-top: 0.15em;
+}
+
+.move-dir-section-header {
+    padding: 0.35em 0.75em 0.2em;
+    font-size: 0.72em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    user-select: none;
+}
+
+.move-dir-item {
+    display: flex;
+    align-items: center;
+    padding: 0.3em 0.75em;
+    cursor: pointer;
+    font-size: 0.88em;
+    color: #222;
+    border-radius: 3px;
+    margin: 1px 4px;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.move-dir-item:hover {
+    background: #e8f0fe;
+}
+
+.move-dir-item.move-selected {
+    background: #d0e4ff;
+    color: #0050a0;
+    font-weight: 500;
+}
