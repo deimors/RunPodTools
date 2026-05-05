@@ -283,6 +283,160 @@ const debouncedMouseEnter = debounce((img, loadingIndicator) => {
     }
 }, 500);
 
+// ─── Tag Functions ────────────────────────────────────────
+
+function createTagChipsElement(tags) {
+    const container = document.createElement('div');
+    container.className = 'tag-chips-container';
+
+    const displayTags = tags.slice(0, 2);
+    const overflowTags = tags.slice(2);
+
+    displayTags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        chip.textContent = tag;
+        container.appendChild(chip);
+    });
+
+    if (overflowTags.length > 0) {
+        const ellipsis = document.createElement('span');
+        ellipsis.className = 'tag-chip tag-ellipsis';
+        ellipsis.textContent = `+${overflowTags.length}`;
+        const tooltip = document.createElement('span');
+        tooltip.className = 'tag-overflow-tooltip';
+        tooltip.textContent = overflowTags.join(', ');
+        ellipsis.appendChild(tooltip);
+        container.appendChild(ellipsis);
+    }
+
+    return container;
+}
+
+async function addTagRequest(dir, filename, tag) {
+    try {
+        const response = await fetch('/tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir, filename, tag })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const cacheKey = `${dir}/${filename}`;
+            if (fileMetadataCache[cacheKey]) {
+                fileMetadataCache[cacheKey].tags = data.tags;
+            }
+            return data.tags;
+        }
+        return null;
+    } catch (err) {
+        console.error('Error adding tag:', err);
+        return null;
+    }
+}
+
+function updateThumbnailTags(filename, tags) {
+    document.querySelectorAll('.gallery .image-container').forEach(container => {
+        const img = container.querySelector('img');
+        const video = container.querySelector('video');
+        const containerFilename = video?.dataset.filename || img?.alt;
+        if (containerFilename === filename) {
+            container.dataset.tags = JSON.stringify(tags);
+            const existing = container.querySelector('.tag-chips-container');
+            const newChips = createTagChipsElement(tags);
+            if (existing) {
+                existing.replaceWith(newChips);
+            } else {
+                container.querySelector('.image-wrapper').appendChild(newChips);
+            }
+        }
+    });
+}
+
+function showLightboxTags(dir, filename, tags) {
+    const container = document.getElementById('lightbox-tags');
+    container.innerHTML = '';
+
+    tags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip tag-chip-deletable';
+        chip.textContent = tag;
+
+        const del = document.createElement('span');
+        del.className = 'tag-chip-delete';
+        del.textContent = '×';
+        del.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                const response = await fetch('/untag', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dir, filename, tag })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const cacheKey = `${dir}/${filename}`;
+                    if (fileMetadataCache[cacheKey]) fileMetadataCache[cacheKey].tags = data.tags;
+                    showLightboxTags(dir, filename, data.tags);
+                    updateThumbnailTags(filename, data.tags);
+                }
+            } catch (err) {
+                console.error('Error removing tag:', err);
+            }
+        });
+        chip.appendChild(del);
+        container.appendChild(chip);
+    });
+
+    const addChip = document.createElement('span');
+    addChip.className = 'tag-add-chip';
+    addChip.textContent = '+';
+
+    addChip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tag-input-popup';
+        input.placeholder = 'tag name';
+
+        input.addEventListener('input', () => {
+            const coerced = input.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+            if (input.value !== coerced) input.value = coerced;
+        });
+
+        const commit = async () => {
+            const tag = input.value.trim();
+            if (tag) {
+                const newTags = await addTagRequest(dir, filename, tag);
+                if (newTags !== null) {
+                    showLightboxTags(dir, filename, newTags);
+                    updateThumbnailTags(filename, newTags);
+                    return;
+                }
+            }
+            if (input.parentNode === container) container.replaceChild(addChip, input);
+        };
+
+        input.addEventListener('keydown', async (ke) => {
+            if (ke.key === 'Enter') { ke.preventDefault(); await commit(); }
+            else if (ke.key === 'Escape') {
+                if (input.parentNode === container) container.replaceChild(addChip, input);
+            }
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (input.parentNode === container) container.replaceChild(addChip, input);
+            }, 150);
+        });
+
+        container.replaceChild(input, addChip);
+        input.focus();
+    });
+
+    container.appendChild(addChip);
+}
+
 // ─── Rating Functions ──────────────────────────────────────
 
 async function setRating(filename, rating) {
@@ -474,7 +628,7 @@ function showLightboxRating(filename, currentRating = 0) {
     });
 }
 
-function createVideoElement(fileName, sortValue = null, duration = null, rating = 0) {
+function createVideoElement(fileName, sortValue = null, duration = null, rating = 0, tags = []) {
     const container = document.createElement("div");
     container.className = "image-container";
 
@@ -557,9 +711,11 @@ function createVideoElement(fileName, sortValue = null, duration = null, rating 
         if (fileMetadata) {
             lightboxInfo.innerText = fileName;
             showLightboxRating(fileName, fileMetadata.rating || 0);
+            showLightboxTags(currentDir, fileName, JSON.parse(container.dataset.tags || '[]'));
         } else {
             lightboxInfo.innerText = fileName;
             showLightboxRating(fileName, 0);
+            showLightboxTags(currentDir, fileName, JSON.parse(container.dataset.tags || '[]'));
         }
 
         // Track current file for metadata
@@ -577,11 +733,17 @@ function createVideoElement(fileName, sortValue = null, duration = null, rating 
     // Add rating widget
     const ratingWidget = createRatingWidget(fileName, rating);
     imageWrapper.appendChild(ratingWidget);
-    
+
+    // Add tag chips
+    container.dataset.tags = JSON.stringify(tags);
+    if (tags.length > 0) {
+        imageWrapper.appendChild(createTagChipsElement(tags));
+    }
+
     return container;
 }
 
-function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null, rating = 0) {
+function createImageElement(fileName, filePath, isWebP = false, animatedPath = null, sortValue = null, duration = null, rating = 0, tags = []) {
     const container = document.createElement("div");
     container.className = "image-container";
 
@@ -654,12 +816,13 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
         lightboxImg.dataset.filename = fileName;
         lightboxImg.src = isWebP && animatedPath ? img.dataset.animated : img.src;
         
-        // Get rating from cache
+        // Get metadata from cache
         const cacheKey = `${currentDir}/${fileName}`;
         const fileMetadata = fileMetadataCache[cacheKey];
         const currentRating = fileMetadata?.rating || 0;
         showLightboxRating(fileName, currentRating);
-        
+        showLightboxTags(currentDir, fileName, JSON.parse(container.dataset.tags || '[]'));
+
         // Show/hide animation controls based on whether it's animated
         const animationControls = document.querySelectorAll(".animation-control");
         if (isWebP && animatedPath) {
@@ -684,7 +847,13 @@ function createImageElement(fileName, filePath, isWebP = false, animatedPath = n
     // Add rating widget
     const ratingWidget = createRatingWidget(fileName, rating);
     imageWrapper.appendChild(ratingWidget);
-    
+
+    // Add tag chips
+    container.dataset.tags = JSON.stringify(tags);
+    if (tags.length > 0) {
+        imageWrapper.appendChild(createTagChipsElement(tags));
+    }
+
     return container;
 }
 
@@ -736,10 +905,11 @@ async function loadMore() {
 
             const sortValue = getSortLabel(sortBy.value, file);
             const rating = file.rating || 0;
+            const tags = file.tags || [];
 
             const container = isMp4
-                ? createVideoElement(fileName, sortValue, fileDuration, rating)
-                : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration, rating);
+                ? createVideoElement(fileName, sortValue, fileDuration, rating, tags)
+                : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration, rating, tags);
             container.dataset.sortDate = new Date(file.last_modified).toISOString();
             container.dataset.sortFilename = fileName.toLowerCase();
             container.dataset.sortSize = file.size_bytes || 0;
@@ -1263,6 +1433,7 @@ lightbox.addEventListener("click", (e) => {
     lightboxVideo.style.display = "none";
     lightboxInfo.innerText = ""; // Clear info text
     lightboxRating.innerHTML = ""; // Clear rating
+    document.getElementById('lightbox-tags').innerHTML = ''; // Clear tags
     closeMetadataPanel(); // Close metadata panel
     currentLightboxFile = null;
     currentLightboxDir = null;
@@ -1547,17 +1718,17 @@ showLastFrameBtn.addEventListener("click", (e) => {
 lightboxImg.addEventListener("load", () => {
     const storedFilename = lightboxImg.dataset.filename;
     const filename = storedFilename || lightboxImg.src.split("/").pop().split('?')[0]; // Remove query parameters
-    const originalFilename = filename.endsWith('.png') ? filename.replace('.png', '.webp') : filename;
-    const cacheKey = `${currentDir}/${originalFilename}`;
+    const cacheKey = `${currentDir}/${filename}`;
     const fileMetadata = fileMetadataCache[cacheKey];
 
     if (fileMetadata) {
         // Set the dataset values for the lightbox image
-        lightboxImg.dataset.static = `/static-frame/${currentDir}/${originalFilename}?frame=first`;
-        lightboxImg.dataset.animated = `/${currentDir}/${originalFilename}`;
+        lightboxImg.dataset.static = `/static-frame/${currentDir}/${filename}?frame=first`;
+        lightboxImg.dataset.animated = `/${currentDir}/${filename}`;
         
-        lightboxInfo.innerText = originalFilename;
-        showLightboxRating(originalFilename, fileMetadata.rating || 0);
+        lightboxInfo.innerText = filename;
+        showLightboxRating(filename, fileMetadata.rating || 0);
+        showLightboxTags(currentDir, filename, fileMetadata.tags || []);
 
         // Show animation controls only if the file is a WebP animation with frames
         const animationControls = document.querySelectorAll(".animation-control");
@@ -1569,6 +1740,7 @@ lightboxImg.addEventListener("load", () => {
     } else {
         lightboxInfo.innerText = filename;
         showLightboxRating(filename, 0);
+        showLightboxTags(currentDir, filename, []);
         // Hide animation controls for non-animated images
         document.querySelectorAll(".animation-control").forEach(btn => btn.classList.add("hidden"));
     }

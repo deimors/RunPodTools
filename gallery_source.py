@@ -6,7 +6,7 @@ from webp import extract_webp_animation_metadata
 from images import get_image_metadata
 from mp4 import extract_mp4_metadata
 from ratings import RatingsManager
-from ratings import RatingsManager
+from tags import TagsManager
 
 class GallerySource(ABC):
     """Abstract base class for gallery sources."""
@@ -64,17 +64,13 @@ class FilesystemGallerySource(GallerySource):
         if not os.path.isdir(self.directory):
             raise ValueError(f"'{self.directory}' is not a valid directory")
         
-        # Initialize ratings manager (skip for archive directories)
+        # Initialize ratings and tags managers (skip for archive directories)
         if allowed_extensions and 'zip' in allowed_extensions:
-            self.ratings_manager = None  # Archives don't need ratings
+            self.ratings_manager = None
+            self.tags_manager = None
         else:
             self.ratings_manager = RatingsManager(self.directory)
-        
-        # Initialize ratings manager (skip for archive directories)
-        if allowed_extensions and 'zip' in allowed_extensions:
-            self.ratings_manager = None  # Archives don't need ratings
-        else:
-            self.ratings_manager = RatingsManager(self.directory)
+            self.tags_manager = TagsManager(self.directory)
     
     def list_files(self) -> List[str]:
         """List all files in the source, recursively."""
@@ -114,11 +110,15 @@ class FilesystemGallerySource(GallerySource):
                 }
                 if self.ratings_manager:
                     result["rating"] = self.ratings_manager.get_rating(filename)
+                if self.tags_manager:
+                    result["tags"] = self.tags_manager.get_tags(filename)
                 return result
             else:
                 result = {"name": filename, "error": metadata, "last_modified": last_modified}
                 if self.ratings_manager:
                     result["rating"] = self.ratings_manager.get_rating(filename)
+                if self.tags_manager:
+                    result["tags"] = self.tags_manager.get_tags(filename)
                 return result
         elif filename.lower().endswith((".png", ".jpg", ".jpeg")):
             metadata = get_image_metadata(file_path)
@@ -131,11 +131,15 @@ class FilesystemGallerySource(GallerySource):
                 }
                 if self.ratings_manager:
                     result["rating"] = self.ratings_manager.get_rating(filename)
+                if self.tags_manager:
+                    result["tags"] = self.tags_manager.get_tags(filename)
                 return result
             else:
                 result = {"name": filename, "error": metadata, "last_modified": last_modified}
                 if self.ratings_manager:
                     result["rating"] = self.ratings_manager.get_rating(filename)
+                if self.tags_manager:
+                    result["tags"] = self.tags_manager.get_tags(filename)
                 return result
         elif filename.lower().endswith(".mp4"):
             metadata = extract_mp4_metadata(file_path)
@@ -150,16 +154,22 @@ class FilesystemGallerySource(GallerySource):
                 }
                 if self.ratings_manager:
                     result["rating"] = self.ratings_manager.get_rating(filename)
+                if self.tags_manager:
+                    result["tags"] = self.tags_manager.get_tags(filename)
                 return result
             else:
                 result = {"name": filename, "error": metadata, "last_modified": last_modified}
                 if self.ratings_manager:
                     result["rating"] = self.ratings_manager.get_rating(filename)
+                if self.tags_manager:
+                    result["tags"] = self.tags_manager.get_tags(filename)
                 return result
         else:
             result = {"name": filename, "last_modified": last_modified}
             if self.ratings_manager:
                 result["rating"] = self.ratings_manager.get_rating(filename)
+            if self.tags_manager:
+                result["tags"] = self.tags_manager.get_tags(filename)
             return result
     
     def get_file_size(self, filename: str) -> int:
@@ -192,9 +202,11 @@ class FilesystemGallerySource(GallerySource):
             file_path = self.get_file_path(filename)
             if os.path.isfile(file_path):
                 os.remove(file_path)
-                # Clean up rating when file is deleted
+                # Clean up rating and tags when file is deleted
                 if self.ratings_manager:
                     self.ratings_manager.delete_rating(filename)
+                if self.tags_manager:
+                    self.tags_manager.delete_file_tags(filename)
                 return True
             return False
         except Exception as e:

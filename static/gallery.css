@@ -1035,6 +1035,148 @@ body {
     background: var(--color-primary-dark);
 }
 
+/* ─── Tag Chips ──────────────────────────────────────────── */
+
+.tag-chips-container {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+.tag-chip {
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+    line-height: 1.4;
+    user-select: none;
+}
+
+.tag-chip.tag-ellipsis {
+    cursor: default;
+    position: relative;
+}
+
+.tag-overflow-tooltip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: rgba(0, 0, 0, 0.88);
+    color: #fff;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.tag-chip.tag-ellipsis:hover .tag-overflow-tooltip {
+    display: block;
+}
+
+/* Lightbox tag chips */
+
+#lightbox-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+    max-width: 90%;
+    margin: 0.4em auto 0;
+}
+
+#lightbox.with-metadata #lightbox-tags {
+    max-width: 100%;
+}
+
+#lightbox-tags .tag-chip {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 12px;
+}
+
+#lightbox-tags .tag-chip-deletable {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding-right: 9px;
+}
+
+.tag-chip-delete {
+    display: none;
+    width: 0;
+    overflow: hidden;
+    height: 16px;
+    background: rgba(220, 60, 60, 0.85);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    transition: width 0.15s, background 0.15s, margin-left 0.15s;
+    flex-shrink: 0;
+}
+
+.tag-chip-delete:hover {
+    background: rgba(200, 30, 30, 1);
+}
+
+#lightbox-tags .tag-chip-deletable:hover .tag-chip-delete {
+    display: block;
+    width: 16px;
+    margin-left: 5px;
+    margin-right: -5px;
+}
+
+.tag-add-chip {
+    background: rgba(255, 255, 255, 0.08);
+    color: #aaa;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 12px;
+    cursor: pointer;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.tag-add-chip:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
+.tag-input-popup {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    outline: none;
+    width: 110px;
+    line-height: 1.4;
+}
+
+.tag-input-popup::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+}
+
 /* ─── Animations ─────────────────────────────────────────── */
 
 @keyframes spin {

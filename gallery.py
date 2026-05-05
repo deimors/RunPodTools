@@ -261,6 +261,54 @@ def rate_file():
     else:
         return jsonify({"success": False, "message": "Failed to save rating"}), 500
 
+@app.route("/tag", methods=["POST"])
+def tag_file():
+    """Add a tag to a file."""
+    data = request.json
+    dir_name = data.get("dir", "gallery")
+    filename = data.get("filename", "")
+    tag = data.get("tag", "")
+
+    if not filename:
+        return jsonify({"success": False, "message": "No filename provided"}), 400
+    if not tag:
+        return jsonify({"success": False, "message": "No tag provided"}), 400
+
+    source = get_source_for_directory(dir_name)
+    if not hasattr(source, 'tags_manager') or source.tags_manager is None:
+        return jsonify({"success": False, "message": "Tags not supported for this directory"}), 400
+    if not source.file_exists(filename):
+        return jsonify({"success": False, "message": "File not found"}), 404
+
+    if source.tags_manager.add_tag(filename, tag):
+        return jsonify({"success": True, "tags": source.tags_manager.get_tags(filename)}), 200
+    else:
+        return jsonify({"success": False, "message": "Failed to save tag"}), 500
+
+@app.route("/untag", methods=["POST"])
+def untag_file():
+    """Remove a tag from a file."""
+    data = request.json
+    dir_name = data.get("dir", "gallery")
+    filename = data.get("filename", "")
+    tag = data.get("tag", "")
+
+    if not filename:
+        return jsonify({"success": False, "message": "No filename provided"}), 400
+    if not tag:
+        return jsonify({"success": False, "message": "No tag provided"}), 400
+
+    source = get_source_for_directory(dir_name)
+    if not hasattr(source, 'tags_manager') or source.tags_manager is None:
+        return jsonify({"success": False, "message": "Tags not supported for this directory"}), 400
+    if not source.file_exists(filename):
+        return jsonify({"success": False, "message": "File not found"}), 404
+
+    if source.tags_manager.remove_tag(filename, tag):
+        return jsonify({"success": True, "tags": source.tags_manager.get_tags(filename)}), 200
+    else:
+        return jsonify({"success": False, "message": "Failed to remove tag"}), 500
+
 @app.route("/metadata/<dir_name>/<path:filename>")
 def get_metadata(dir_name, filename):
     """Extract and return metadata for a file, including workflow JSON."""
