@@ -186,6 +186,19 @@ def list_tags():
         result.append({"name": tag, "count": count})
     return jsonify({"tags": result})
 
+@app.route("/extensions")
+def list_extensions():
+    dir_name = request.args.get("dir", "gallery")
+    subpath = request.args.get("subpath", "")
+    source = get_source_for_directory(dir_name)
+    counts = source.list_extensions_in_dir(subpath)
+    result = sorted(
+        [{"ext": ext, "count": count} for ext, count in counts.items()],
+        key=lambda x: x["count"],
+        reverse=True
+    )
+    return jsonify({"extensions": result})
+
 @app.route("/images")
 def list_images():
     dir_name = request.args.get("dir", "gallery")
@@ -195,10 +208,15 @@ def list_images():
     subpath = request.args.get("subpath", "")
     rating_filter = request.args.get("rating_filter", "all")
     tag_filter_param = request.args.get("tag_filter", "")
+    ext_filter = request.args.get("ext_filter", "")
 
     source = get_source_for_directory(dir_name)
     all_files = source.list_files_in_dir(subpath)
-    
+
+    # Filter by extension if specified
+    if ext_filter:
+        all_files = [f for f in all_files if os.path.splitext(f)[1].lower() == ext_filter.lower()]
+
     # Filter by rating if specified
     if rating_filter != "all":
         try:

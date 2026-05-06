@@ -53,6 +53,7 @@ const sortDir = document.getElementById("sort-dir");
 const ratingFilter = document.getElementById("rating-filter");
 const tagFilterBtn = document.getElementById("tag-filter-btn");
 const tagFilterDropdown = document.getElementById("tag-filter-dropdown");
+const extFilter = document.getElementById("ext-filter");
 const loadingText = document.getElementById("loading"); // Extracted loading text element
 
 let selectedTags = new Set();
@@ -115,6 +116,37 @@ document.addEventListener("click", (e) => {
     if (!e.target.closest("#tag-filter-wrapper")) {
         tagFilterDropdown.classList.remove("open");
     }
+});
+
+async function fetchAndPopulateExtFilter() {
+    try {
+        const response = await fetch(`/extensions?dir=${currentDir}&subpath=${encodeURIComponent(currentSubpath)}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const extensions = data.extensions || [];
+        const currentVal = extFilter.value;
+        extFilter.innerHTML = '<option value="">All</option>';
+        extensions.forEach(({ext, count}) => {
+            const option = document.createElement("option");
+            option.value = ext;
+            option.textContent = `${ext} (${count})`;
+            extFilter.appendChild(option);
+        });
+        if (currentVal && extensions.some(e => e.ext === currentVal)) {
+            extFilter.value = currentVal;
+        }
+    } catch (err) {
+        console.error("Error fetching extensions:", err);
+    }
+}
+
+extFilter.addEventListener("change", () => {
+    page = 0;
+    done = false;
+    loading = false;
+    gallery.innerHTML = "";
+    loadMore();
+    fetchAndPopulateTagFilter();
 });
 
 const modalSteps = {
@@ -1194,8 +1226,9 @@ async function loadMore() {
 
     try {
         const tagFilterParam = selectedTags.size > 0 ? `&tag_filter=${[...selectedTags].join(",")}` : "";
+        const extFilterParam = extFilter.value ? `&ext_filter=${encodeURIComponent(extFilter.value)}` : "";
         const response = await fetch(
-            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}&rating_filter=${ratingFilter.value}${tagFilterParam}`,
+            `/images?dir=${currentDir}&page=${page}&sort_by=${sortBy.value}&sort_dir=${sortDir.value}&subpath=${encodeURIComponent(currentSubpath)}&rating_filter=${ratingFilter.value}${tagFilterParam}${extFilterParam}`,
             { signal: fetchController.signal }
         );
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -1272,9 +1305,11 @@ function switchDirectory(dir) {
     ratingFilter.value = "all"; // Reset rating filter
     selectedTags.clear();
     updateTagFilterLabel();
+    extFilter.value = "";
 
     loadMore(); // Load new directory contents
     fetchAndPopulateTagFilter();
+    fetchAndPopulateExtFilter();
 
     // Update heading text
     mainHeadingName.innerHTML = dir === "gallery" ? "Gallery" : "Uploads";
@@ -1711,6 +1746,7 @@ function navigateSubdir(subpath, navDir = currentDir) {
         ratingFilter.value = "all"; // Reset rating filter when switching directories
         selectedTags.clear();
         updateTagFilterLabel();
+        extFilter.value = "";
     }
     currentSubpath = subpath;
     // Store the subpath for the current directory
@@ -1737,6 +1773,7 @@ function navigateSubdir(subpath, navDir = currentDir) {
     renderDirTree(navDir);
     loadMore();
     fetchAndPopulateTagFilter();
+    fetchAndPopulateExtFilter();
 }
 
 // Close lightbox on click
@@ -1775,6 +1812,7 @@ closeMetadataBtn.addEventListener("click", (e) => {
 // Initial load
 loadMore();
 fetchAndPopulateTagFilter();
+fetchAndPopulateExtFilter();
 
 // Infinite scroll
 window.addEventListener("scroll", () => {

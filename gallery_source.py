@@ -286,3 +286,12 @@ class FilesystemGallerySource(GallerySource):
         except PermissionError:
             pass
         return result
+
+    def list_extensions_in_dir(self, subpath: str = "") -> Dict[str, int]:
+        """Count files by extension (non-recursively) in base_dir/subpath."""
+        counts: Dict[str, int] = {}
+        for f in self.list_files_in_dir(subpath):
+            ext = os.path.splitext(f)[1].lower()
+            if ext:
+                counts[ext] = counts.get(ext, 0) + 1
+        return counts
