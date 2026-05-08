@@ -5,10 +5,11 @@ import {
     zipFilenameInput,
 } from './dom.js';
 import { hideModal, showInfo } from './modal.js';
-import { fetchAndPopulateTagFilter, fetchAndPopulateExtFilter, updateTagFilterLabel } from './tags.js';
+import { fetchAndPopulateTagFilter, fetchAndPopulateExtFilter, updateTagFilterLabel, initTagFilter } from './tags.js';
 import {
     loadMore, reloadGallery, switchDirectory, navigateSubdir,
     showDirPanel, scheduleDirPanelHide, cancelDirPanelHide,
+    initNavigation,
 } from './navigation.js';
 import { populateArchives, reloadArchives } from './archives.js';
 import { initLightbox } from './lightbox.js';
@@ -120,6 +121,8 @@ initLightbox();
 initUploadListeners();
 initToolbar(zipFilenameInput);
 initZipHandler();
+initNavigation({ onAfterNavigate: () => { fetchAndPopulateTagFilter(); fetchAndPopulateExtFilter(); } });
+initTagFilter({ onFilterChange: reloadGallery });
 
 loadMore();
 fetchAndPopulateTagFilter();

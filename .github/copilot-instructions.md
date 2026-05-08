@@ -56,13 +56,23 @@ Never introduce new module-level `let` variables for data that needs to be share
 ### API layer
 Every `fetch` call belongs in `api.js`. Feature modules call those functions; they do not call `fetch` directly. When the server adds a new endpoint, add a function to `api.js` first.
 
-### Circular dependency workaround
-`tags.js` needs `reloadGallery` from `navigation.js`, but `navigation.js` imports from `tags.js`. This is resolved with a **dynamic import** inside the callback in `tags.js`:
+### Avoiding circular dependencies (Dependency Inversion)
+Circular imports between modules must not be introduced. If module A needs to call a function owned by module B, and B already imports from A, the solution is **callback injection** via an `init` function rather than a cross-import.
+
+`navigation.js` and `tags.js` would otherwise be circular (`navigation` calls `fetchAndPopulateTagFilter`; `tags` calls `reloadGallery`). This is broken by having each module expose an `init` function that accepts the dependency as a callback, which `main.js` supplies at startup:
+
 ```js
-const { reloadGallery } = await import('./navigation.js');
-reloadGallery();
+// main.js (composition root)
+initNavigation({ onAfterNavigate: () => {
+    fetchAndPopulateTagFilter();
+    fetchAndPopulateExtFilter();
+}});
+initTagFilter({ onFilterChange: reloadGallery });
 ```
-Use the same pattern for any future circular dependency rather than restructuring modules.
+
+Neither module imports the other. `main.js`, as the composition root, is the only place that knows about both.
+
+Apply the same pattern for any future case where two modules would otherwise need to import each other.
 
 ### HTML entry point
 `templates/gallery.html` loads the app via:

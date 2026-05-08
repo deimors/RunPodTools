@@ -3,6 +3,13 @@ import { tagFilterBtn, tagFilterDropdown, extFilter } from './dom.js';
 import { addTagRequest as apiAddTag, removeTagRequest, fetchTagsRequest, fetchExtensionsRequest } from './api.js';
 import { hideModal } from './modal.js';
 
+// Injected by main.js via initTagFilter — avoids a circular dependency with navigation.js
+let _onFilterChange = () => {};
+
+export function initTagFilter({ onFilterChange }) {
+    _onFilterChange = onFilterChange;
+}
+
 export function updateTagFilterLabel() {
     tagFilterBtn.textContent = state.selectedTags.size === 0 ? 'Select...' : `Tags (${state.selectedTags.size})`;
 }
@@ -26,13 +33,11 @@ export async function fetchAndPopulateTagFilter() {
                 cb.type = 'checkbox';
                 cb.value = name;
                 cb.checked = state.selectedTags.has(name);
-                cb.addEventListener('change', async () => {
+                cb.addEventListener('change', () => {
                     if (cb.checked) state.selectedTags.add(name);
                     else state.selectedTags.delete(name);
                     updateTagFilterLabel();
-                    // Dynamic import breaks the navigation.js ↔ tags.js cycle
-                    const { reloadGallery } = await import('./navigation.js');
-                    reloadGallery();
+                    _onFilterChange();
                     fetchAndPopulateTagFilter();
                 });
                 label.appendChild(cb);

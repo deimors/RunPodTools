@@ -7,7 +7,13 @@ import {
 import { fetchImagesRequest, fetchDirTree, mkdirRequest } from './api.js';
 import { getSortLabel } from './utils.js';
 import { createImageElement, createVideoElement } from './gallery-items.js';
-import { fetchAndPopulateTagFilter, fetchAndPopulateExtFilter } from './tags.js';
+
+// Injected by main.js via initNavigation — avoids a circular dependency with tags.js
+let onAfterNavigate = () => {};
+
+export function initNavigation({ onAfterNavigate: fn }) {
+    onAfterNavigate = fn;
+}
 
 // ─── Gallery Loading ───────────────────────────────────────
 
@@ -111,8 +117,7 @@ export function switchDirectory(dir) {
     extFilter.value = '';
 
     loadMore();
-    fetchAndPopulateTagFilter();
-    fetchAndPopulateExtFilter();
+    onAfterNavigate();
 
     mainHeadingName.innerHTML = dir === 'gallery' ? 'Gallery' : 'Uploads';
     if (state.currentSubpath) {
@@ -385,6 +390,5 @@ export function navigateSubdir(subpath, navDir = state.currentDir) {
 
     renderDirTree(navDir);
     loadMore();
-    fetchAndPopulateTagFilter();
-    fetchAndPopulateExtFilter();
+    onAfterNavigate();
 }
