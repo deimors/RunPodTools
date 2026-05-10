@@ -83,18 +83,22 @@ export function createVideoElement(fileName, sortValue = null, duration = null, 
         container.classList.toggle('selected', checkbox.checked);
     });
 
-    if (sortValue) {
-        const sortValueElement = document.createElement('div');
-        sortValueElement.className = 'sort-value';
-        sortValueElement.textContent = sortValue;
-        imageWrapper.appendChild(sortValueElement);
-    }
-
-    if (duration) {
-        const durationElement = document.createElement('div');
-        durationElement.className = 'duration';
-        durationElement.textContent = `${duration.toFixed(2)}s`;
-        imageWrapper.appendChild(durationElement);
+    if (sortValue || duration) {
+        const infoBar = document.createElement('div');
+        infoBar.className = 'media-info-bar';
+        if (duration) {
+            const durationElement = document.createElement('div');
+            durationElement.className = 'duration';
+            durationElement.textContent = `${duration.toFixed(2)}s`;
+            infoBar.appendChild(durationElement);
+        }
+        if (sortValue) {
+            const sortValueElement = document.createElement('div');
+            sortValueElement.className = 'sort-value';
+            sortValueElement.textContent = sortValue;
+            infoBar.appendChild(sortValueElement);
+        }
+        imageWrapper.appendChild(infoBar);
     }
 
     container.addEventListener('mouseenter', () => video.play());
@@ -178,18 +182,22 @@ export function createImageElement(
         container.classList.toggle('selected', checkbox.checked);
     });
 
-    if (sortValue) {
-        const sortValueElement = document.createElement('div');
-        sortValueElement.className = 'sort-value';
-        sortValueElement.textContent = sortValue;
-        imageWrapper.appendChild(sortValueElement);
-    }
-
-    if (isWebP && duration) {
-        const durationElement = document.createElement('div');
-        durationElement.className = 'duration';
-        durationElement.textContent = `${duration.toFixed(2)}s`;
-        imageWrapper.appendChild(durationElement);
+    if (sortValue || (isWebP && duration)) {
+        const infoBar = document.createElement('div');
+        infoBar.className = 'media-info-bar';
+        if (isWebP && duration) {
+            const durationElement = document.createElement('div');
+            durationElement.className = 'duration';
+            durationElement.textContent = `${duration.toFixed(2)}s`;
+            infoBar.appendChild(durationElement);
+        }
+        if (sortValue) {
+            const sortValueElement = document.createElement('div');
+            sortValueElement.className = 'sort-value';
+            sortValueElement.textContent = sortValue;
+            infoBar.appendChild(sortValueElement);
+        }
+        imageWrapper.appendChild(infoBar);
     }
 
     img.src = filePath;
@@ -288,18 +296,22 @@ export function createAudioElement(fileName, sortValue = null, duration = null, 
         container.classList.toggle('selected', checkbox.checked);
     });
 
-    if (sortValue) {
-        const sortValueElement = document.createElement('div');
-        sortValueElement.className = 'sort-value';
-        sortValueElement.textContent = sortValue;
-        imageWrapper.appendChild(sortValueElement);
-    }
-
-    if (duration) {
-        const durationElement = document.createElement('div');
-        durationElement.className = 'duration';
-        durationElement.textContent = `${duration.toFixed(2)}s`;
-        imageWrapper.appendChild(durationElement);
+    if (sortValue || duration) {
+        const infoBar = document.createElement('div');
+        infoBar.className = 'media-info-bar';
+        if (duration) {
+            const durationElement = document.createElement('div');
+            durationElement.className = 'duration';
+            durationElement.textContent = `${duration.toFixed(2)}s`;
+            infoBar.appendChild(durationElement);
+        }
+        if (sortValue) {
+            const sortValueElement = document.createElement('div');
+            sortValueElement.className = 'sort-value';
+            sortValueElement.textContent = sortValue;
+            infoBar.appendChild(sortValueElement);
+        }
+        imageWrapper.appendChild(infoBar);
     }
 
     // Open lightbox when clicking the wrapper (but not on the audio controls themselves)

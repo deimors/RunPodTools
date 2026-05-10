@@ -226,30 +226,24 @@ body {
     display: block;
 }
 
-.gallery .image-container .sort-value {
+.gallery .image-container .media-info-bar {
     position: absolute;
     bottom: 8px;
     right: 8px;
-    background: var(--overlay-dark);
-    color: #fff;
-    padding: 0.2em 0.4em;
-    border-radius: 4px;
-    font-size: 0.8em;
-    white-space: nowrap;
+    display: flex;
+    gap: 4px;
+    align-items: center;
     z-index: 10;
 }
 
+.gallery .image-container .sort-value,
 .gallery .image-container .duration {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
     background: var(--overlay-dark);
     color: #fff;
     padding: 0.2em 0.4em;
     border-radius: 4px;
     font-size: 0.8em;
     white-space: nowrap;
-    z-index: 10;
 }
 
 /* ─── Star Rating ─────────────────────────────────────────── */
