@@ -637,6 +637,11 @@ body {
     max-height: 80vh;
 }
 
+#lightbox-audio {
+    width: 33vw;
+    min-width: 280px;
+}
+
 #lightbox-info {
     color: #fff;
     font-size: 0.9em;
