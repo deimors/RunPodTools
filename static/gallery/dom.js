@@ -10,6 +10,7 @@ export const dropArea = document.getElementById('drop-area');
 export const lightbox = document.getElementById('lightbox');
 export const lightboxImg = document.getElementById('lightbox-img');
 export const lightboxVideo = document.getElementById('lightbox-video');
+export const lightboxAudio = document.getElementById('lightbox-audio');
 export const modal = document.getElementById('modal');
 export const zipFilenameInput = document.getElementById('zip-filename');
 export const zipBtn = document.getElementById('zip-btn');

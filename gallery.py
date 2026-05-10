@@ -37,7 +37,7 @@ except ValueError as e:
 
 # Constants
 FILES_PER_PAGE = 12
-ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png', 'mp4'}
+ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png', 'mp4', 'mp3'}
 
 # Static frame cache
 static_frame_cache:Dict[str, bytes] = {}

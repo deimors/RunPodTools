@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { lightbox, lightboxImg, lightboxVideo, lightboxInfo } from './dom.js';
+import { lightbox, lightboxImg, lightboxVideo, lightboxAudio, lightboxInfo } from './dom.js';
 import { createTagChipsElement, showLightboxTags } from './tags.js';
 import { createRatingWidget, showLightboxRating } from './ratings.js';
 import { closeMetadataPanel } from './metadata.js';
@@ -234,6 +234,99 @@ export function createImageElement(
 
     imageWrapper.appendChild(img);
     imageWrapper.appendChild(loadingIndicator);
+    container.appendChild(imageWrapper);
+    container.appendChild(checkbox);
+    imageWrapper.appendChild(createRatingWidget(fileName, rating));
+
+    container.dataset.tags = JSON.stringify(tags);
+    if (tags.length > 0) imageWrapper.appendChild(createTagChipsElement(tags));
+
+    return container;
+}
+
+export function createAudioElement(fileName, sortValue = null, duration = null, rating = 0, tags = []) {
+    const container = document.createElement('div');
+    container.className = 'image-container';
+
+    const imageWrapper = document.createElement('div');
+    imageWrapper.className = 'image-wrapper audio-wrapper';
+
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.loop = true;
+    audio.preload = 'metadata';
+    audio.src = `/${state.currentDir}/${fileName}`;
+    audio.dataset.filename = fileName;
+    audio.style.cssText = 'width:100%;';
+
+    audio.draggable = true;
+    audio.addEventListener('dragstart', e => {
+        e.dataTransfer.setData(
+            'DownloadURL',
+            `audio/mpeg:${fileName}:${window.location.origin}/${state.currentDir}/${fileName}`
+        );
+    });
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'checkbox';
+
+    checkbox.addEventListener('click', e => {
+        if (e.shiftKey && state.lastSelectedIndex !== -1) {
+            const checkboxes = Array.from(document.querySelectorAll('.gallery .checkbox'));
+            const currentIndex = checkboxes.indexOf(checkbox);
+            const [start, end] = [state.lastSelectedIndex, currentIndex].sort((a, b) => a - b);
+            for (let i = start; i <= end; i++) {
+                checkboxes[i].checked = checkbox.checked;
+                checkboxes[i].closest('.image-container').classList.toggle('selected', checkbox.checked);
+            }
+        }
+        state.lastSelectedIndex = Array.from(document.querySelectorAll('.gallery .checkbox')).indexOf(checkbox);
+    });
+
+    checkbox.addEventListener('change', () => {
+        container.classList.toggle('selected', checkbox.checked);
+    });
+
+    if (sortValue) {
+        const sortValueElement = document.createElement('div');
+        sortValueElement.className = 'sort-value';
+        sortValueElement.textContent = sortValue;
+        imageWrapper.appendChild(sortValueElement);
+    }
+
+    if (duration) {
+        const durationElement = document.createElement('div');
+        durationElement.className = 'duration';
+        durationElement.textContent = `${duration.toFixed(2)}s`;
+        imageWrapper.appendChild(durationElement);
+    }
+
+    // Open lightbox when clicking the wrapper (but not on the audio controls themselves)
+    imageWrapper.addEventListener('click', e => {
+        if (e.target === audio || audio.contains(e.target)) return;
+        if (e.target.className === 'checkbox') return;
+        const cacheKey = `${state.currentDir}/${fileName}`;
+        const fileMetadata = state.fileMetadataCache[cacheKey];
+
+        lightboxImg.style.display = 'none';
+        lightboxVideo.style.display = 'none';
+        lightboxAudio.style.display = 'block';
+        lightboxAudio.src = `/${state.currentDir}/${fileName}`;
+        lightboxAudio.play();
+        document.querySelectorAll('.animation-control').forEach(btn => btn.classList.add('hidden'));
+
+        lightboxInfo.innerText = fileName;
+        showLightboxRating(fileName, fileMetadata?.rating || 0);
+        showLightboxTags(state.currentDir, fileName, JSON.parse(container.dataset.tags || '[]'));
+
+        state.currentLightboxFile = fileName;
+        state.currentLightboxDir = state.currentDir;
+        closeMetadataPanel();
+        lightbox.style.display = 'flex';
+    });
+
+    imageWrapper.appendChild(audio);
     container.appendChild(imageWrapper);
     container.appendChild(checkbox);
     imageWrapper.appendChild(createRatingWidget(fileName, rating));

@@ -5,6 +5,7 @@ from datetime import datetime
 from webp import extract_webp_animation_metadata
 from images import get_image_metadata
 from mp4 import extract_mp4_metadata
+from mp3 import extract_mp3_metadata
 from ratings import RatingsManager
 from tags import TagsManager
 
@@ -54,7 +55,7 @@ class GallerySource(ABC):
 class FilesystemGallerySource(GallerySource):
     """Filesystem-based gallery source implementation."""
     
-    ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png', 'mp4'}
+    ALLOWED_EXTENSIONS = {'webp', 'jpg', 'jpeg', 'png', 'mp4', 'mp3'}
     
     def __init__(self, directory: str, allowed_extensions: Optional[set] = None):
         self.directory = os.path.abspath(directory)
@@ -164,6 +165,23 @@ class FilesystemGallerySource(GallerySource):
                 if self.tags_manager:
                     result["tags"] = self.tags_manager.get_tags(filename)
                 return result
+        elif filename.lower().endswith(".mp3"):
+            file_size = os.path.getsize(file_path)
+            metadata = extract_mp3_metadata(file_path)
+            if isinstance(metadata, dict) and 'error' not in metadata:
+                result = {
+                    "name": filename,
+                    "size_bytes": file_size,
+                    "duration_seconds": metadata["duration_seconds"],
+                    "last_modified": last_modified
+                }
+            else:
+                result = {"name": filename, "size_bytes": file_size, "last_modified": last_modified}
+            if self.ratings_manager:
+                result["rating"] = self.ratings_manager.get_rating(filename)
+            if self.tags_manager:
+                result["tags"] = self.tags_manager.get_tags(filename)
+            return result
         else:
             result = {"name": filename, "last_modified": last_modified}
             if self.ratings_manager:

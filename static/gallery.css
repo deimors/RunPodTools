@@ -187,6 +187,20 @@ body {
     position: relative;
 }
 
+.gallery .audio-wrapper {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: var(--color-surface, #1e1e1e);
+    border-radius: var(--radius-default);
+    box-shadow: var(--shadow-default);
+    aspect-ratio: 1;
+}
+
+.gallery .audio-wrapper audio {
+    width: 100%;
+}
+
 .gallery img {
     display: block;
     width: 100%;

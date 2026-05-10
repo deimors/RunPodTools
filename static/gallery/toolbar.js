@@ -11,7 +11,8 @@ export function getSelectedImages() {
         .map(container => {
             const img = container.querySelector('img');
             const video = container.querySelector('video');
-            return img ? img.alt : video ? video.dataset.filename : null;
+            const audio = container.querySelector('audio');
+            return img ? img.alt : video ? video.dataset.filename : audio ? audio.dataset.filename : null;
         })
         .filter(Boolean);
 }
@@ -42,7 +43,8 @@ export async function deleteFiles(files) {
             const imgContainer = Array.from(gallery.children).find(container => {
                 const img = container.querySelector('img');
                 const video = container.querySelector('video');
-                return (img && img.alt === filename) || (video && video.dataset.filename === filename);
+                const audio = container.querySelector('audio');
+                return (img && img.alt === filename) || (video && video.dataset.filename === filename) || (audio && audio.dataset.filename === filename);
             });
             if (imgContainer) gallery.removeChild(imgContainer);
         });
@@ -184,7 +186,8 @@ async function applyMove(selectedFiles) {
             const imgContainer = Array.from(gallery.children).find(container => {
                 const img = container.querySelector('img');
                 const video = container.querySelector('video');
-                return (img && img.alt === filename) || (video && video.dataset.filename === filename);
+                const audio = container.querySelector('audio');
+                return (img && img.alt === filename) || (video && video.dataset.filename === filename) || (audio && audio.dataset.filename === filename);
             });
             if (imgContainer) gallery.removeChild(imgContainer);
 

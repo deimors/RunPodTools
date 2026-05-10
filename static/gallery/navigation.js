@@ -6,7 +6,7 @@ import {
 } from './dom.js';
 import { fetchImagesRequest, fetchDirTree, mkdirRequest } from './api.js';
 import { getSortLabel } from './utils.js';
-import { createImageElement, createVideoElement } from './gallery-items.js';
+import { createImageElement, createVideoElement, createAudioElement } from './gallery-items.js';
 
 // Injected by main.js via initNavigation — avoids a circular dependency with tags.js
 let onAfterNavigate = () => {};
@@ -50,11 +50,12 @@ export async function loadMore() {
             const fileExt = fileName.split('.').pop().toLowerCase();
             const isMp4 = fileExt === 'mp4';
             const isWebP = fileExt === 'webp';
+            const isMp3 = fileExt === 'mp3';
             const filePath = isWebP
                 ? `/static-frame/${state.currentDir}/${fileName}`
                 : `/${state.currentDir}/${fileName}`;
             const animatedPath = isWebP ? `/${state.currentDir}/${fileName}` : null;
-            const fileDuration = (isWebP || isMp4) ? file.duration_seconds : null;
+            const fileDuration = (isWebP || isMp4 || isMp3) ? file.duration_seconds : null;
 
             state.fileMetadataCache[`${state.currentDir}/${fileName}`] = file;
 
@@ -64,7 +65,9 @@ export async function loadMore() {
 
             const container = isMp4
                 ? createVideoElement(fileName, sortValue, fileDuration, rating, tags)
-                : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration, rating, tags);
+                : isMp3
+                    ? createAudioElement(fileName, sortValue, fileDuration, rating, tags)
+                    : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration, rating, tags);
 
             container.dataset.sortDate = new Date(file.last_modified).toISOString();
             container.dataset.sortFilename = fileName.toLowerCase();

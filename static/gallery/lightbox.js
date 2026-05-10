@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import {
-    lightbox, lightboxImg, lightboxVideo, lightboxInfo, lightboxRating,
+    lightbox, lightboxImg, lightboxVideo, lightboxAudio, lightboxInfo, lightboxRating,
     toggleMetadataBtn, closeMetadataBtn,
 } from './dom.js';
 import { toggleMetadataPanel, closeMetadataPanel } from './metadata.js';
@@ -28,6 +28,9 @@ export function initLightbox() {
         lightboxVideo.pause();
         lightboxVideo.src = '';
         lightboxVideo.style.display = 'none';
+        lightboxAudio.pause();
+        lightboxAudio.src = '';
+        lightboxAudio.style.display = 'none';
         lightboxInfo.innerText = '';
         lightboxRating.innerHTML = '';
         document.getElementById('lightbox-tags').innerHTML = '';
