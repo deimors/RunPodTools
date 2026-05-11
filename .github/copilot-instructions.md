@@ -98,6 +98,39 @@ Every gallery card container (`.image-container`) carries three data attributes 
 
 ---
 
+## Maintaining These Instructions
+
+After any significant refactor, update this file to reflect the new patterns before closing the task. A refactor is significant if it:
+- Establishes a new convention that future changes should follow (e.g. a new data attribute contract, a new abstraction layer, a new module)
+- Eliminates a pattern that was previously correct but is now wrong
+- Changes the rules for how a named module, attribute, or function should be used
+
+### What to document
+
+For each significant refactor, add or update:
+1. **The pattern itself** — what the new rule is and where it lives
+2. **The motivation** — one sentence on why the old approach was replaced
+3. **The rules** — specific do/don't statements a future agent can act on unambiguously
+4. **A change guide row** — what files to touch when extending the pattern
+
+### Example — Media type data attributes (May 2026)
+
+**Old pattern (eliminated):** Code throughout `toolbar.js`, `ratings.js`, `tags.js`, and `gallery-items.js` queried `container.querySelector('video')`, `querySelector('img')`, and `querySelector('audio')` to determine the media type and filename of a card, and hardcoded MIME strings like `'video/mp4'` in drag handlers.
+
+**Problem:** Every new media type required finding and updating all these scattered query sites. The `upload.js` dispatch was a copy of `navigation.js` and went out of sync when MP3 support was added, silently routing audio uploads to `createImageElement`.
+
+**New pattern:** Three data attributes are stamped on every `.image-container` immediately after the factory call in `navigation.js` and `upload.js`:
+- `dataset.filename` — the bare filename, used for all card-to-filename lookups
+- `dataset.mediaType` — `'image'` | `'video'` | `'audio'`
+- `dataset.isAnimated` — `'true'` | `'false'`
+- `dataset.mimeType` — e.g. `'video/mp4'`, `'audio/mpeg'`, `'image/webp'`
+
+All downstream code reads these attributes. No module outside `gallery-items.js` queries child elements to determine type or filename.
+
+See the "Media type data attributes" section under Key Patterns for the full rules.
+
+---
+
 ## Back-End Files
 
 | File | Purpose |
