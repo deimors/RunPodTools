@@ -9,6 +9,7 @@ const observer = new IntersectionObserver(
     entries => {
         entries.forEach(entry => {
             const imgContainer = entry.target;
+            if (imgContainer.dataset.mediaType !== 'image') return;
             const img = imgContainer.querySelector('img');
             if (entry.isIntersecting) {
                 if (!img.dataset.src) return;
@@ -58,7 +59,7 @@ export function createVideoElement(fileName, sortValue = null, duration = null, 
     video.addEventListener('dragstart', e => {
         e.dataTransfer.setData(
             'DownloadURL',
-            `video/mp4:${fileName}:${window.location.origin}/${state.currentDir}/${fileName}`
+            `${container.dataset.mimeType || 'video/mp4'}:${fileName}:${window.location.origin}/${state.currentDir}/${fileName}`
         );
     });
 
@@ -115,6 +116,7 @@ export function createVideoElement(fileName, sortValue = null, duration = null, 
         lightboxImg.style.display = 'none';
         lightboxVideo.style.display = 'block';
         lightboxVideo.src = `/${state.currentDir}/${fileName}`;
+        lightboxVideo.dataset.mimeType = container.dataset.mimeType || 'video/mp4';
         lightboxVideo.play();
         document.querySelectorAll('.animation-control').forEach(btn => btn.classList.add('hidden'));
 
@@ -133,6 +135,7 @@ export function createVideoElement(fileName, sortValue = null, duration = null, 
     container.appendChild(checkbox);
     imageWrapper.appendChild(createRatingWidget(fileName, rating));
 
+    container.dataset.filename = fileName;
     container.dataset.tags = JSON.stringify(tags);
     if (tags.length > 0) imageWrapper.appendChild(createTagChipsElement(tags));
 
@@ -182,10 +185,10 @@ export function createImageElement(
         container.classList.toggle('selected', checkbox.checked);
     });
 
-    if (sortValue || (isWebP && duration)) {
+    if (sortValue || duration) {
         const infoBar = document.createElement('div');
         infoBar.className = 'media-info-bar';
-        if (isWebP && duration) {
+        if (duration) {
             const durationElement = document.createElement('div');
             durationElement.className = 'duration';
             durationElement.textContent = `${duration.toFixed(2)}s`;
@@ -220,7 +223,7 @@ export function createImageElement(
     img.addEventListener('click', e => {
         if (e.target.className === 'checkbox') return;
         lightboxImg.dataset.filename = fileName;
-        lightboxImg.src = isWebP && animatedPath ? img.dataset.animated : img.src;
+        lightboxImg.src = container.dataset.isAnimated === 'true' ? img.dataset.animated : img.src;
 
         const cacheKey = `${state.currentDir}/${fileName}`;
         const fileMetadata = state.fileMetadataCache[cacheKey];
@@ -228,7 +231,7 @@ export function createImageElement(
         showLightboxTags(state.currentDir, fileName, JSON.parse(container.dataset.tags || '[]'));
 
         const animationControls = document.querySelectorAll('.animation-control');
-        if (isWebP && animatedPath) {
+        if (container.dataset.isAnimated === 'true') {
             animationControls.forEach(btn => btn.classList.remove('hidden'));
         } else {
             animationControls.forEach(btn => btn.classList.add('hidden'));
@@ -246,6 +249,7 @@ export function createImageElement(
     container.appendChild(checkbox);
     imageWrapper.appendChild(createRatingWidget(fileName, rating));
 
+    container.dataset.filename = fileName;
     container.dataset.tags = JSON.stringify(tags);
     if (tags.length > 0) imageWrapper.appendChild(createTagChipsElement(tags));
 
@@ -271,7 +275,7 @@ export function createAudioElement(fileName, sortValue = null, duration = null, 
     audio.addEventListener('dragstart', e => {
         e.dataTransfer.setData(
             'DownloadURL',
-            `audio/mpeg:${fileName}:${window.location.origin}/${state.currentDir}/${fileName}`
+            `${container.dataset.mimeType || 'audio/mpeg'}:${fileName}:${window.location.origin}/${state.currentDir}/${fileName}`
         );
     });
 
@@ -343,6 +347,7 @@ export function createAudioElement(fileName, sortValue = null, duration = null, 
     container.appendChild(checkbox);
     imageWrapper.appendChild(createRatingWidget(fileName, rating));
 
+    container.dataset.filename = fileName;
     container.dataset.tags = JSON.stringify(tags);
     if (tags.length > 0) imageWrapper.appendChild(createTagChipsElement(tags));
 

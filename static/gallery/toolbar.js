@@ -8,12 +8,7 @@ import { fetchAndPopulateTagFilter, initTagModal } from './tags.js';
 
 export function getSelectedImages() {
     return Array.from(document.querySelectorAll('.gallery .image-container.selected'))
-        .map(container => {
-            const img = container.querySelector('img');
-            const video = container.querySelector('video');
-            const audio = container.querySelector('audio');
-            return img ? img.alt : video ? video.dataset.filename : audio ? audio.dataset.filename : null;
-        })
+        .map(container => container.dataset.filename || null)
         .filter(Boolean);
 }
 
@@ -21,15 +16,12 @@ export function getSelectedImages() {
 
 export function reloadStaticFrames() {
     const timestamp = Date.now();
-    document.querySelectorAll('.gallery img').forEach(img => {
-        const currentSrc = img.src;
-        if (currentSrc.includes('/static-frame/')) {
-            img.src = `${currentSrc.split('?')[0]}?bust=${timestamp}`;
-        } else if (img.dataset.static) {
-            const baseUrl = img.dataset.static.split('?')[0];
-            img.src = `${baseUrl}?bust=${timestamp}`;
-            img.dataset.static = `${baseUrl}?bust=${timestamp}`;
-        }
+    document.querySelectorAll('.gallery .image-container[data-is-animated="true"]').forEach(container => {
+        const img = container.querySelector('img');
+        if (!img) return;
+        const baseUrl = (img.dataset.static || img.src).split('?')[0];
+        img.src = `${baseUrl}?bust=${timestamp}`;
+        img.dataset.static = `${baseUrl}?bust=${timestamp}`;
     });
 }
 
@@ -40,12 +32,7 @@ export async function deleteFiles(files) {
     const result = await response.json();
     if (result.success) {
         result.deleted.forEach(filename => {
-            const imgContainer = Array.from(gallery.children).find(container => {
-                const img = container.querySelector('img');
-                const video = container.querySelector('video');
-                const audio = container.querySelector('audio');
-                return (img && img.alt === filename) || (video && video.dataset.filename === filename) || (audio && audio.dataset.filename === filename);
-            });
+            const imgContainer = Array.from(gallery.children).find(c => c.dataset.filename === filename);
             if (imgContainer) gallery.removeChild(imgContainer);
         });
         showInfo('Deletion Complete', result.message);
@@ -183,12 +170,7 @@ async function applyMove(selectedFiles) {
 
     if (result.moved && result.moved.length > 0) {
         result.moved.forEach(filename => {
-            const imgContainer = Array.from(gallery.children).find(container => {
-                const img = container.querySelector('img');
-                const video = container.querySelector('video');
-                const audio = container.querySelector('audio');
-                return (img && img.alt === filename) || (video && video.dataset.filename === filename) || (audio && audio.dataset.filename === filename);
-            });
+            const imgContainer = Array.from(gallery.children).find(c => c.dataset.filename === filename);
             if (imgContainer) gallery.removeChild(imgContainer);
 
             const cacheKey = `${state.currentDir}/${filename}`;

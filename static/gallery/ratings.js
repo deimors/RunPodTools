@@ -80,18 +80,12 @@ export function showLightboxRating(filename, currentRating = 0) {
                 const containers = document.querySelectorAll('.gallery .image-container');
                 if (filterValue !== 'all' && newRating !== parseInt(filterValue)) {
                     containers.forEach(container => {
-                        const video = container.querySelector('video');
-                        const img = container.querySelector('img');
-                        const audio = container.querySelector('audio');
-                        if ((video?.dataset.filename || img?.alt || audio?.dataset.filename) === filename) container.remove();
+                        if (container.dataset.filename === filename) container.remove();
                     });
                 } else {
                     containers.forEach(container => {
                         const ratingWidget = container.querySelector('.rating-container');
-                        const video = container.querySelector('video');
-                        const img = container.querySelector('img');
-                        const audio = container.querySelector('audio');
-                        if ((video?.dataset.filename || img?.alt || audio?.dataset.filename) === filename && ratingWidget) {
+                        if (container.dataset.filename === filename && ratingWidget) {
                             updateRatingDisplay(ratingWidget, newRating);
                         }
                     });

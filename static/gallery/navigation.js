@@ -56,6 +56,11 @@ export async function loadMore() {
                 : `/${state.currentDir}/${fileName}`;
             const animatedPath = isWebP ? `/${state.currentDir}/${fileName}` : null;
             const fileDuration = (isWebP || isMp4 || isMp3) ? file.duration_seconds : null;
+            const mimeType = isMp4 ? 'video/mp4'
+                : isMp3 ? 'audio/mpeg'
+                : isWebP ? 'image/webp'
+                : fileExt === 'png' ? 'image/png'
+                : 'image/jpeg';
 
             state.fileMetadataCache[`${state.currentDir}/${fileName}`] = file;
 
@@ -69,6 +74,9 @@ export async function loadMore() {
                     ? createAudioElement(fileName, sortValue, fileDuration, rating, tags)
                     : createImageElement(fileName, filePath, isWebP, animatedPath, sortValue, fileDuration, rating, tags);
 
+            container.dataset.mediaType = isMp4 ? 'video' : isMp3 ? 'audio' : 'image';
+            container.dataset.isAnimated = isWebP ? 'true' : 'false';
+            container.dataset.mimeType = mimeType;
             container.dataset.sortDate = new Date(file.last_modified).toISOString();
             container.dataset.sortFilename = fileName.toLowerCase();
             container.dataset.sortSize = file.size_bytes || 0;

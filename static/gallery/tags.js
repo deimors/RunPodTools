@@ -110,9 +110,7 @@ export function createTagChipsElement(tags) {
 
 export function updateThumbnailTags(filename, tags) {
     document.querySelectorAll('.gallery .image-container').forEach(container => {
-        const img = container.querySelector('img');
-        const video = container.querySelector('video');
-        const containerFilename = video?.dataset.filename || img?.alt;
+        const containerFilename = container.dataset.filename;
         if (containerFilename === filename) {
             container.dataset.tags = JSON.stringify(tags);
             const existing = container.querySelector('.tag-chips-container');

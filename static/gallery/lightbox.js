@@ -13,7 +13,7 @@ export function initLightbox() {
     lightboxVideo.addEventListener('dragstart', e => {
         const src = lightboxVideo.src;
         const fileName = src.split('/').pop();
-        e.dataTransfer.setData('DownloadURL', `video/mp4:${fileName}:${src}`);
+        e.dataTransfer.setData('DownloadURL', `${lightboxVideo.dataset.mimeType || 'video/mp4'}:${fileName}:${src}`);
     });
 
     // Close lightbox on backdrop click

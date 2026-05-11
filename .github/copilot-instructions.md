@@ -27,7 +27,7 @@ The front-end was split from a single `static/gallery.js` monolith into 15 focus
 | `metadata.js` | `fetchMetadata`, `displayMetadata`, `toggleMetadataPanel`, `closeMetadataPanel` — renders the side panel in the lightbox | Changing metadata display or panel behaviour |
 | `tags.js` | Tag filter bar (`fetchAndPopulateTagFilter`, `fetchAndPopulateExtFilter`, `updateTagFilterLabel`), tag suggestions (`fetchTagSuggestions`), thumbnail chips (`createTagChipsElement`, `updateThumbnailTags`), lightbox inline tag editor (`showLightboxTags`), bulk tag modal (`initTagModal`, `addPendingInputChip`, `createPendingFilledChip`) | Any tag-related change |
 | `ratings.js` | `createRatingWidget` (thumbnail star widget), `updateRatingDisplay`, `showLightboxRating` | Any rating-related change |
-| `gallery-items.js` | `createImageElement`, `createVideoElement` — builds individual thumbnail DOM nodes including checkboxes, hover animation, drag-start, lightbox click | Changing how thumbnails look or behave |
+| `gallery-items.js` | `createImageElement`, `createVideoElement`, `createAudioElement` — builds individual thumbnail DOM nodes including checkboxes, hover animation, drag-start, lightbox click | Changing how thumbnails look or behave |
 | `archives.js` | `populateArchives`, `reloadArchives` — renders the archives list view | Changing archive display |
 
 ### Navigation & Layout
@@ -81,6 +81,21 @@ Apply the same pattern for any future case where two modules would otherwise nee
 ```
 All DOM element IDs are defined in `gallery.html`; `dom.js` is the single place that queries them.
 
+### Media type data attributes (DOM as self-indexing registry)
+Every gallery card container (`.image-container`) carries three data attributes stamped by `navigation.js` and `upload.js` immediately after the factory call:
+
+| Attribute | Values | Purpose |
+|---|---|---|
+| `data-media-type` | `'image'` \| `'video'` \| `'audio'` | Identifies the media kind without querying children |
+| `data-is-animated` | `'true'` \| `'false'` | True only for WebP animations |
+| `data-mime-type` | `'video/mp4'` \| `'audio/mpeg'` \| `'image/webp'` \| `'image/png'` \| `'image/jpeg'` | Used in drag-and-drop `DownloadURL` and lightbox drag |
+
+**Rules:**
+- Never query `container.querySelector('video')`, `querySelector('img')`, or `querySelector('audio')` to determine media type or filename. Use `container.dataset.mediaType` and `container.dataset.filename` instead.
+- Never hardcode MIME strings (`'video/mp4'`, `'audio/mpeg'`). Read `container.dataset.mimeType` (or `lightboxVideo.dataset.mimeType` in the lightbox drag handler).
+- When adding a new media type, add a factory function in `gallery-items.js`, a dispatch branch in both `navigation.js` and `upload.js`, and stamp the three attributes there.
+- Use CSS attribute selectors when you only need a subset of containers: e.g. `'.image-container[data-is-animated="true"]'` to find all WebP cards without scanning children.
+
 ---
 
 ## Back-End Files
@@ -94,6 +109,7 @@ All DOM element IDs are defined in `gallery.html`; `dom.js` is the single place 
 | `gallery.py` / `gallery_source.py` | Gallery source configuration |
 | `mp4.py` | MP4 thumbnail/duration helpers |
 | `webp.py` | WebP frame extraction helpers |
+| `mp3.py` | MP3 duration extraction via `mutagen` |
 | `push.py` / `receive.py` | Asset sync utilities |
 
 ---
@@ -102,6 +118,7 @@ All DOM element IDs are defined in `gallery.html`; `dom.js` is the single place 
 
 | Task | Files to load |
 |---|---|
+| Add a new media type | `gallery-items.js` (new `createXElement`), `navigation.js` + `upload.js` (dispatch + stamp 3 data attributes), `gallery_source.py` + `gallery.py` (extension whitelists), `gallery.html` (accept attr + lightbox element), `dom.js` (lightbox element export), `lightbox.js` (close handler reset) |
 | Change how images/videos are fetched from server | `api.js` → `fetchImagesRequest`, `navigation.js` → `loadMore` |
 | Add a new tag action | `api.js` + `tags.js` |
 | Change lightbox appearance or controls | `lightbox.js`, `gallery-items.js` (click handler) |
